@@ -163,6 +163,11 @@ describe('GoodSlack', function () {
     var spy;
 
     describe('_send()', function () {
+      before(function (done) {
+        GoodSlack.__set__('internals.host', 'localhost');
+        done();
+      });
+
       beforeEach(function (done) {
         spy = Sinon.spy();
         revert = GoodSlack.__set__('Wreck', { request: spy });
@@ -191,7 +196,7 @@ describe('GoodSlack', function () {
         var data = {
           payload: Stringify({
             attachments: [{
-              pretext: '`response` event from *nakes.local* at ' + timeString,
+              pretext: '`response` event from *localhost* at ' + timeString,
               'mrkdwn_in': ['pretext','text','fields'],
               color: 'good',
               text: '*POST* /data {"name":"diego"} 200 (150ms)'
@@ -224,7 +229,7 @@ describe('GoodSlack', function () {
         var data = {
           payload: Stringify({
             attachments: [{
-              pretext: '`response` event from *nakes.local* at ' + timeString,
+              pretext: '`response` event from *localhost* at ' + timeString,
               'mrkdwn_in': ['pretext','text','fields'],
               color: 'danger',
               text: '*POST* /data {"name":"diego"} 404 (150ms)'
@@ -255,7 +260,7 @@ describe('GoodSlack', function () {
         var data = {
           payload: Stringify({
             attachments: [{
-              pretext: '`ops` event from *nakes.local* at ' + timeString,
+              pretext: '`ops` event from *localhost* at ' + timeString,
               'mrkdwn_in': ['pretext','text','fields'],
               fields: [{
                 title: 'Memory',
@@ -303,7 +308,7 @@ describe('GoodSlack', function () {
         var data = {
           payload: Stringify({
             attachments: [{
-              pretext: '`error` event from *nakes.local* at ' + timeString,
+              pretext: '`error` event from *localhost* at ' + timeString,
               'mrkdwn_in': ['pretext','text','fields'],
               color: 'danger',
               fields:[{
@@ -341,7 +346,7 @@ describe('GoodSlack', function () {
         var data = {
           payload: Stringify({
             attachments: [{
-              pretext: '`log` event from *nakes.local* at ' + timeString,
+              pretext: '`log` event from *localhost* at ' + timeString,
               'mrkdwn_in': ['pretext','text','fields'],
               fields: [{
                 title: 'Tags',
@@ -381,7 +386,7 @@ describe('GoodSlack', function () {
         var data = {
           payload: Stringify({
             attachments: [{
-              pretext: '`log` event from *nakes.local* at ' + timeString,
+              pretext: '`log` event from *localhost* at ' + timeString,
               'mrkdwn_in': ['pretext','text','fields'],
               fields: [{
                 title: 'Tags',
@@ -420,7 +425,7 @@ describe('GoodSlack', function () {
         var data = {
           payload: Stringify({
             attachments: [{
-              pretext: '`log` event from *nakes.local* at ' + timeString,
+              pretext: '`log` event from *localhost* at ' + timeString,
               'mrkdwn_in': ['pretext','text','fields'],
               fields: [{
                 title: 'Tags',
