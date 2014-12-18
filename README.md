@@ -2,6 +2,8 @@
 
 Slack Webhook message posting for Good process monitor
 
+[![Build Status](https://travis-ci.org/dmacosta/good-slack.svg)](https://travis-ci.org/dmacosta/good-slack)
+
 ## Usage
 
 `good-slack` is a [good-reporter](https://github.com/hapijs/good-reporter)
