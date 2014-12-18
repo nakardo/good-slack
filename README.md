@@ -2,7 +2,7 @@
 
 Slack Webhook message posting for Good process monitor
 
-[![Build Status](https://travis-ci.org/dmacosta/good-slack.svg)](https://travis-ci.org/dmacosta/good-slack)
+[![Build Status](https://travis-ci.org/dmacosta/good-slack.svg)](https://travis-ci.org/dmacosta/good-slack) ![Current Version](https://img.shields.io/npm/v/good-slack.svg)
 
 ## Usage
 
