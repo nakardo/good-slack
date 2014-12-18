@@ -1,6 +1,6 @@
 {
   "name": "good-slack",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "repository": "git://github.com/dmacosta/good-slack",
   "description": "Slack Webhook message posting for Good process monitor",
   "main": "index.js",
@@ -15,9 +15,6 @@
     "json-stringify-safe": "^5.0.0",
     "moment": "^2.8.4",
     "wreck": "^5.0.1"
-  },
-  "peerDependencies": {
-    "good": ">= 5.x.x"
   },
   "devDependencies": {
     "code": "^1.2.1",
