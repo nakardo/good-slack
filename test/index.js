@@ -57,6 +57,17 @@ internals.response = {
   }
 };
 
+internals.request = {
+  event: 'request',
+  timestamp: Date.now(),
+  tags: ['info'],
+  path: '/data',
+  method: 'post',
+  data: 'This is a request log',
+  pid: '10001',
+  id: '23147901234:Machine1:73489:8uasdf98:10000'
+};
+
 internals.error = {
   event: 'error',
   timestamp: 1418869888194,
@@ -200,6 +211,90 @@ describe('GoodSlack', function () {
               'mrkdwn_in': ['pretext','text','fields'],
               color: 'good',
               text: '*POST* /data {"name":"diego"} 200 (150ms)'
+            }]
+          })
+        };
+
+        Sinon.assert.calledOnce(spy);
+        Sinon.assert.calledWith(spy, 'post', 'https://hooks.slack.com', data);
+
+        done();
+      });
+
+      it('sends message on "request" event with object', function (done) {
+        var reporter = new GoodSlack({ request: '*' }, '#channel',
+          'https://hooks.slack.com');
+        var now = Date.now();
+        var timeString = Moment.utc(now).format(internals.defaults.format);
+        var ee = new EventEmitter();
+        var event = Hoek.clone(internals.request);
+
+        event.timestamp = now;
+        event.data = { name: 'diego' };
+        var reqPayload = Stringify({ name: 'diego' }, null, 2);
+
+        reporter.start(ee, function (err) {
+          expect(err).to.not.exist();
+          ee.emit('report', 'request', event);
+        });
+
+        var data = {
+          payload: Stringify({
+            attachments: [{
+              pretext: '`request` event from *localhost* at ' + timeString,
+              'mrkdwn_in': ['pretext','text','fields'],
+              fields: [{
+                title: 'POST /data',
+                value: 'PID: 10001 \nRequest ID: 23147901234:Machine1:73489:8uasdf98:10000'
+              },{
+                title: 'Tags',
+                value: 'info'
+              }, {
+                title: 'Data',
+                value: Util.format('```\n%s\n```', reqPayload)
+              }]
+            }]
+          })
+        };
+
+        Sinon.assert.calledOnce(spy);
+        Sinon.assert.calledWith(spy, 'post', 'https://hooks.slack.com', data);
+
+        done();
+      });
+
+      it('sends message on "request" event on error', function (done) {
+        var reporter = new GoodSlack({ request: '*' }, '#channel',
+          'https://hooks.slack.com');
+        var now = Date.now();
+        var timeString = Moment.utc(now).format(internals.defaults.format);
+        var event = Hoek.clone(internals.request);
+        var ee = new EventEmitter();
+
+        event.tags = ['error'];
+        event.timestamp = now;
+
+        reporter.start(ee, function (err) {
+          expect(err).to.not.exist();
+          ee.emit('report', 'request', event);
+        });
+
+        var data = {
+          payload: Stringify({
+            attachments: [{
+              pretext: '`request` event from *localhost* at ' + timeString,
+              'mrkdwn_in': ['pretext','text','fields'],
+              color: 'danger',
+              fields: [{
+                title: 'POST /data',
+                value: 'PID: 10001 \nRequest ID: 23147901234:Machine1:73489:8uasdf98:10000'
+              },{
+                title: 'Tags',
+                value: 'error'
+              }, {
+                title: 'Data',
+                value: 'This is a request log'
+              }]
             }]
           })
         };
