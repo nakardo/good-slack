@@ -120,31 +120,24 @@ describe('GoodSlack', function () {
     done();
   });
 
-  it('throws an error if missing channel', function (done) {
-    expect(function () {
-      var reporter = new GoodSlack();
-    }).to.throw('channel must be a string');
-
-    done();
-  });
-
   it('throws an error if missing url', function (done) {
     expect(function () {
-      var reporter = new GoodSlack(null, '#channel');
-    }).to.throw('url must be a string');
+      var reporter = new GoodSlack(null, {});
+    }).to.throw('config.url must be a string');
 
     done();
   });
 
   it('does not throw an error with missing options', function (done) {
-    var reporter = new GoodSlack(null, '#channel', 'https://hooks.slack.com');
+    var reporter = new GoodSlack(null, {url: 'https://hooks.slack.com'});
     expect(reporter).to.exist();
 
     done();
   });
 
   it('set options to defaults', function (done) {
-    var reporter = new GoodSlack(null, '#channel', 'https://hooks.slack.com', {
+    var reporter = new GoodSlack(null, {
+      url: 'https://hooks.slack.com',
       slack: { username: 'testing-bot' },
       format: 'lll'
     });
@@ -191,8 +184,7 @@ describe('GoodSlack', function () {
       });
 
       it('sends message on "response" event on success', function (done) {
-        var reporter = new GoodSlack({ response: '*' }, '#channel',
-          'https://hooks.slack.com');
+        var reporter = new GoodSlack({ response: '*' }, { url: 'https://hooks.slack.com'});
         var now = Date.now();
         var timeString = Moment.utc(now).format(internals.defaults.format);
         var ee = new EventEmitter();
