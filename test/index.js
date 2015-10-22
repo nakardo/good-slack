@@ -1,5 +1,6 @@
 // Load modules
 
+var Stream = require('stream');
 var EventEmitter = require('events').EventEmitter;
 var Util = require('util');
 var Code = require('code');
@@ -7,7 +8,6 @@ var Hoek = require('hoek');
 var Lab = require('lab');
 var Moment = require('moment');
 var Stringify = require('json-stringify-safe');
-var Sinon = require('sinon');
 var Rewire = require('rewire');
 
 // Declare internals
@@ -16,6 +16,18 @@ var internals = {
     defaults: {
         format: 'YYMMDD/HHmmss.SSS'
     }
+};
+
+internals.config = {
+    channel: '#channel',
+    url: 'https://hooks.slack.com'
+};
+
+internals.readStream = function () {
+
+    var result = new Stream.Readable({ objectMode: true });
+    result._read = Hoek.ignore;
+    return result;
 };
 
 internals.ops = {
@@ -108,468 +120,456 @@ var afterEach = lab.afterEach;
 var describe = lab.describe;
 var it = lab.it;
 
-describe('GoodSlack', function () {
 
-    var GoodSlack = Rewire('../lib');
+var GoodSlack = Rewire('../lib');
 
-    it('throw an error is not constructed with new', function (done) {
+it('can be created with new', function (done) {
 
-        expect(function () {
+    var reporter = new GoodSlack(null, internals.config);
+    expect(reporter).to.exist();
 
-            var reporter = GoodSlack();
-        }).to.throw('GoodSlack must be created with new');
+    done();
+});
 
-        done();
+it('can be created without new', function (done) {
+
+    var reporter = GoodSlack(null, internals.config);
+    expect(reporter).to.exist();
+
+    done();
+});
+
+it('throws an error if missing channel', function (done) {
+
+    expect(function () {
+
+        new GoodSlack(null, { url: 'https://hooks.slack.com' });
+    }).to.throw('channel must be a string');
+
+    done();
+});
+
+it('throws an error if missing url', function (done) {
+
+    expect(function () {
+
+        new GoodSlack(null, { channel: '#channel' });
+    }).to.throw('url must be a string');
+
+    done();
+});
+
+it('applies config to defaults', function (done) {
+
+    var config = Hoek.applyToDefaults(internals.config, {
+        slack: {
+            username: 'testing-bot'
+        },
+        format: 'lll'
     });
 
-    it('throws an error if missing channel', function (done) {
+    var reporter = new GoodSlack(null, config);
+    expect(reporter).to.exist();
 
-        expect(function () {
-
-            var reporter = new GoodSlack();
-        }).to.throw('channel must be a string');
-
-        done();
+    expect(reporter._config).to.deep.equal({
+        channel: '#channel',
+        url: 'https://hooks.slack.com',
+        slack: {
+            username: 'testing-bot'
+        },
+        format: 'lll'
     });
 
-    it('throws an error if missing url', function (done) {
+    done();
+});
 
-        expect(function () {
+it('wraps json payload in markdown code format', function (done) {
 
-            var reporter = new GoodSlack(null, '#channel');
-        }).to.throw('url must be a string');
+    var codeFormat = GoodSlack.__get__('internals.codeFormat');
 
-        done();
-    });
+    var data = Stringify({ foo: 'bar', bar: 'baz' }, null, 2);
+    var response = Util.format('```\n%s\n```', data);
 
-    it('does not throw an error with missing options', function (done) {
+    expect(response).to.equal(codeFormat(data));
 
-        var reporter = new GoodSlack(null, '#channel', 'https://hooks.slack.com');
-        expect(reporter).to.exist();
+    done();
+});
 
-        done();
-    });
+describe('_report()', function () {
 
-    it('set options to defaults', function (done) {
+    var revert;
+    var stream;
+    var now = Date.now();
+    var timeString = Moment.utc(now).format(internals.defaults.format);
 
-        var reporter = new GoodSlack(null, '#channel', 'https://hooks.slack.com', {
-            slack: { username: 'testing-bot' },
-            format: 'lll'
+    describe('_send()', function () {
+
+        before(function (done) {
+
+            GoodSlack.__set__('internals.host', 'localhost');
+            done();
         });
-        expect(reporter).to.exist();
 
-        var settings = reporter._settings;
-        expect(settings.slack).to.be.an.object();
-        expect(settings.slack.username).to.equal('testing-bot');
-        expect(settings.format).to.equal('lll');
+        beforeEach(function (done) {
 
-        done();
-    });
+            stream = internals.readStream();
+            done();
+        });
 
-    it('wraps json payload in markdown code format', function (done) {
+        afterEach(function (done) {
 
-        var codeFormat = GoodSlack.__get__('internals.codeFormat');
+            revert();
+            done();
+        });
 
-        var data = Stringify({ foo: 'bar', bar: 'baz' }, null, 2);
-        var response = Util.format('```\n%s\n```', data);
+        it('sends message on "response" event on success', function (done) {
 
-        expect(response).to.equal(codeFormat(data));
+            var reporter = new GoodSlack({ response: '*' }, internals.config);
+            var event = Hoek.clone(internals.response);
 
-        done();
-    });
+            event.timestamp = now;
 
-    describe('_report()', function () {
+            reporter.init(stream, null, function (err) {
 
-        var revert;
-        var spy;
-
-        describe('_send()', function () {
-
-            before(function (done) {
-
-                GoodSlack.__set__('internals.host', 'localhost');
-                done();
+                expect(err).to.not.exist();
+                stream.push(event);
             });
 
-            beforeEach(function (done) {
-
-                spy = Sinon.spy();
-                revert = GoodSlack.__set__('Wreck', { request: spy });
-                done();
+            var data = Stringify({
+                attachments: [{
+                    pretext: '`response` event from *localhost* at ' + timeString,
+                    'mrkdwn_in': ['pretext','text','fields'],
+                    color: 'good',
+                    text: '*POST* /data {"name":"diego"} 200 (150ms)'
+                }]
             });
 
-            afterEach(function (done) {
+            var request = function (method, uri, options) {
 
-                revert();
+                expect(method).to.equal('post');
+                expect(uri).to.equal(internals.config.url);
+                expect(options.payload).to.deep.equal(data);
                 done();
+            };
+            revert = GoodSlack.__set__('Wreck', { request: request });
+        });
+
+        it('sends message on "request" event with object', function (done) {
+
+            var reporter = new GoodSlack({ request: '*' }, internals.config);
+            var event = Hoek.clone(internals.request);
+
+            event.timestamp = now;
+            event.data = { name: 'diego' };
+            var reqPayload = Stringify({ name: 'diego' }, null, 2);
+
+            reporter.init(stream, null, function (err) {
+
+                expect(err).to.not.exist();
+                stream.push(event);
             });
 
-            it('sends message on "response" event on success', function (done) {
-
-                var reporter = new GoodSlack({ response: '*' }, '#channel',
-                'https://hooks.slack.com');
-                var now = Date.now();
-                var timeString = Moment.utc(now).format(internals.defaults.format);
-                var ee = new EventEmitter();
-
-                internals.response.timestamp = now;
-
-                reporter.start(ee, function (err) {
-
-                    expect(err).to.not.exist();
-                    ee.emit('report', 'response', internals.response);
-                });
-
-                var data = {
-                    payload: Stringify({
-                        attachments: [{
-                            pretext: '`response` event from *localhost* at ' + timeString,
-                            'mrkdwn_in': ['pretext','text','fields'],
-                            color: 'good',
-                            text: '*POST* /data {"name":"diego"} 200 (150ms)'
-                        }]
-                    })
-                };
-
-                Sinon.assert.calledOnce(spy);
-                Sinon.assert.calledWith(spy, 'post', 'https://hooks.slack.com', data);
-
-                done();
+            var data = Stringify({
+                attachments: [{
+                    pretext: '`request` event from *localhost* at ' + timeString,
+                    'mrkdwn_in': ['pretext','text','fields'],
+                    fields: [{
+                        title: 'POST /data',
+                        value: 'PID: 10001 \nRequest ID: 23147901234:Machine1:73489:8uasdf98:10000'
+                    },{
+                        title: 'Tags',
+                        value: 'info'
+                    }, {
+                        title: 'Data',
+                        value: Util.format('```\n%s\n```', reqPayload)
+                    }]
+                }]
             });
 
-            it('sends message on "request" event with object', function (done) {
+            var request = function (method, uri, options) {
 
-                var reporter = new GoodSlack({ request: '*' }, '#channel',
-                'https://hooks.slack.com');
-                var now = Date.now();
-                var timeString = Moment.utc(now).format(internals.defaults.format);
-                var ee = new EventEmitter();
-                var event = Hoek.clone(internals.request);
-
-                event.timestamp = now;
-                event.data = { name: 'diego' };
-                var reqPayload = Stringify({ name: 'diego' }, null, 2);
-
-                reporter.start(ee, function (err) {
-
-                    expect(err).to.not.exist();
-                    ee.emit('report', 'request', event);
-                });
-
-                var data = {
-                    payload: Stringify({
-                        attachments: [{
-                            pretext: '`request` event from *localhost* at ' + timeString,
-                            'mrkdwn_in': ['pretext','text','fields'],
-                            fields: [{
-                                title: 'POST /data',
-                                value: 'PID: 10001 \nRequest ID: 23147901234:Machine1:73489:8uasdf98:10000'
-                            },{
-                                title: 'Tags',
-                                value: 'info'
-                            }, {
-                                title: 'Data',
-                                value: Util.format('```\n%s\n```', reqPayload)
-                            }]
-                        }]
-                    })
-                };
-
-                Sinon.assert.calledOnce(spy);
-                Sinon.assert.calledWith(spy, 'post', 'https://hooks.slack.com', data);
-
+                expect(method).to.equal('post');
+                expect(uri).to.equal(internals.config.url);
+                expect(options.payload).to.deep.equal(data);
                 done();
+            };
+            revert = GoodSlack.__set__('Wreck', { request: request });
+        });
+
+        it('sends message on "request" event on error', function (done) {
+
+            var reporter = new GoodSlack({ request: '*' }, internals.config);
+            var event = Hoek.clone(internals.request);
+
+            event.tags = ['error'];
+            event.timestamp = now;
+
+            reporter.init(stream, null, function (err) {
+
+                expect(err).to.not.exist();
+                stream.push(event);
             });
 
-            it('sends message on "request" event on error', function (done) {
-
-                var reporter = new GoodSlack({ request: '*' }, '#channel',
-                'https://hooks.slack.com');
-                var now = Date.now();
-                var timeString = Moment.utc(now).format(internals.defaults.format);
-                var event = Hoek.clone(internals.request);
-                var ee = new EventEmitter();
-
-                event.tags = ['error'];
-                event.timestamp = now;
-
-                reporter.start(ee, function (err) {
-
-                    expect(err).to.not.exist();
-                    ee.emit('report', 'request', event);
-                });
-
-                var data = {
-                    payload: Stringify({
-                        attachments: [{
-                            pretext: '`request` event from *localhost* at ' + timeString,
-                            'mrkdwn_in': ['pretext','text','fields'],
-                            color: 'danger',
-                            fields: [{
-                                title: 'POST /data',
-                                value: 'PID: 10001 \nRequest ID: 23147901234:Machine1:73489:8uasdf98:10000'
-                            },{
-                                title: 'Tags',
-                                value: 'error'
-                            }, {
-                                title: 'Data',
-                                value: 'This is a request log'
-                            }]
-                        }]
-                    })
-                };
-
-                Sinon.assert.calledOnce(spy);
-                Sinon.assert.calledWith(spy, 'post', 'https://hooks.slack.com', data);
-
-                done();
+            var data = Stringify({
+                attachments: [{
+                    pretext: '`request` event from *localhost* at ' + timeString,
+                    'mrkdwn_in': ['pretext','text','fields'],
+                    color: 'danger',
+                    fields: [{
+                        title: 'POST /data',
+                        value: 'PID: 10001 \nRequest ID: 23147901234:Machine1:73489:8uasdf98:10000'
+                    },{
+                        title: 'Tags',
+                        value: 'error'
+                    }, {
+                        title: 'Data',
+                        value: 'This is a request log'
+                    }]
+                }]
             });
 
-            it('sends message on "response" event on error', function (done) {
+            var request = function (method, uri, options) {
 
-                var reporter = new GoodSlack({ response: '*' }, '#channel',
-                'https://hooks.slack.com');
-                var now = Date.now();
-                var timeString = Moment.utc(now).format(internals.defaults.format);
-                var event = Hoek.clone(internals.response);
-                var ee = new EventEmitter();
-
-                event.timestamp = now;
-                event.statusCode = 404;
-
-                reporter.start(ee, function (err) {
-
-                    expect(err).to.not.exist();
-                    ee.emit('report', 'response', event);
-                });
-
-                var data = {
-                    payload: Stringify({
-                        attachments: [{
-                            pretext: '`response` event from *localhost* at ' + timeString,
-                            'mrkdwn_in': ['pretext','text','fields'],
-                            color: 'danger',
-                            text: '*POST* /data {"name":"diego"} 404 (150ms)'
-                        }]
-                    })
-                };
-
-                Sinon.assert.calledOnce(spy);
-                Sinon.assert.calledWith(spy, 'post', 'https://hooks.slack.com', data);
-
+                expect(method).to.equal('post');
+                expect(uri).to.equal(internals.config.url);
+                expect(options.payload).to.deep.equal(data);
                 done();
+            };
+            revert = GoodSlack.__set__('Wreck', { request: request });
+        });
+
+        it('sends message on "response" event on error', function (done) {
+
+            var reporter = new GoodSlack({ response: '*' }, internals.config);
+            var event = Hoek.clone(internals.response);
+
+            event.timestamp = now;
+            event.statusCode = 404;
+
+            reporter.init(stream, null, function (err) {
+
+                expect(err).to.not.exist();
+                stream.push(event);
             });
 
-            it('sends message on "ops" event', function (done) {
-
-                var reporter = new GoodSlack({ ops: '*' }, '#channel',
-                'https://hooks.slack.com');
-                var now = Date.now();
-                var timeString = Moment.utc(now).format(internals.defaults.format);
-                var ee = new EventEmitter();
-
-                internals.ops.timestamp = now;
-
-                reporter.start(ee, function (err) {
-
-                    expect(err).to.not.exist();
-                    ee.emit('report', 'ops', internals.ops);
-                });
-
-                var data = {
-                    payload: Stringify({
-                        attachments: [{
-                            pretext: '`ops` event from *localhost* at ' + timeString,
-                            'mrkdwn_in': ['pretext','text','fields'],
-                            fields: [{
-                                title: 'Memory',
-                                value:'29 Mb.',
-                                short: true
-                            }, {
-                                title: 'Uptime (seconds)',
-                                value: 6,
-                                short: true
-                            }, {
-                                title: 'Load',
-                                value: [1.650390625,1.6162109375,1.65234375],
-                                short: true
-                            }]
-                        }]
-                    })
-                };
-
-                Sinon.assert.calledOnce(spy);
-                Sinon.assert.calledWith(spy, 'post', 'https://hooks.slack.com', data);
-
-                done();
+            var data = Stringify({
+                attachments: [{
+                    pretext: '`response` event from *localhost* at ' + timeString,
+                    'mrkdwn_in': ['pretext','text','fields'],
+                    color: 'danger',
+                    text: '*POST* /data {"name":"diego"} 404 (150ms)'
+                }]
             });
 
-            it('sends message on "error" event', function (done) {
+            var request = function (method, uri, options) {
 
-                var reporter = new GoodSlack({ error: '*' }, '#channel',
-                'https://hooks.slack.com');
-                var now = Date.now();
-                var timeString = Moment.utc(now).format(internals.defaults.format);
-                var event = Hoek.clone(internals.response);
-                var error = new Error('Something bad had happened');
-                var ee = new EventEmitter();
+                expect(method).to.equal('post');
+                expect(uri).to.equal(internals.config.url);
+                expect(options.payload).to.deep.equal(data);
+                done();
+            };
+            revert = GoodSlack.__set__('Wreck', { request: request });
+        });
 
-                error.stack = 'Error: Something bad had happened\n' +
+        it('sends message on "ops" event', function (done) {
+
+            var reporter = new GoodSlack({ ops: '*' }, internals.config);
+
+            internals.ops.timestamp = now;
+
+            reporter.init(stream, null, function (err) {
+
+                expect(err).to.not.exist();
+                stream.push(internals.ops);
+            });
+
+            var data = Stringify({
+                attachments: [{
+                    pretext: '`ops` event from *localhost* at ' + timeString,
+                    'mrkdwn_in': ['pretext','text','fields'],
+                    fields: [{
+                        title: 'Memory',
+                        value:'29 Mb.',
+                        short: true
+                    }, {
+                        title: 'Uptime (seconds)',
+                        value: 6,
+                        short: true
+                    }, {
+                        title: 'Load',
+                        value: [1.650390625,1.6162109375,1.65234375],
+                        short: true
+                    }]
+                }]
+            });
+
+            var request = function (method, uri, options) {
+
+                expect(method).to.equal('post');
+                expect(uri).to.equal(internals.config.url);
+                expect(options.payload).to.deep.equal(data);
+                done();
+            };
+            revert = GoodSlack.__set__('Wreck', { request: request });
+        });
+
+        it('sends message on "error" event', function (done) {
+
+            var reporter = new GoodSlack({ error: '*' }, internals.config);
+            var event = Hoek.clone(internals.error);
+            var error = new Error('Something bad had happened');
+
+            error.stack = 'Error: Something bad had happened\n' +
                 '    at Object.<anonymous> (/good-slack/test/index.js:79:10)';
 
-                event.timestamp = now;
-                event.error = error;
+            event.timestamp = now;
+            event.error = error;
 
-                reporter.start(ee, function (err) {
+            reporter.init(stream, null, function (err) {
 
-                    expect(err).to.not.exist();
-                    ee.emit('report', 'error', event);
-                });
-
-                var data = {
-                    payload: Stringify({
-                        attachments: [{
-                            pretext: '`error` event from *localhost* at ' + timeString,
-                            'mrkdwn_in': ['pretext','text','fields'],
-                            color: 'danger',
-                            fields:[{
-                                title: 'Error',
-                                value: 'Error: Something bad had happened'
-                            },{
-                                title: 'Stack',
-                                value: Util.format('```\n%s\n```', error.stack)
-                            }]
-                        }]
-                    })
-                };
-
-                Sinon.assert.calledOnce(spy);
-                Sinon.assert.calledWith(spy, 'post', 'https://hooks.slack.com', data);
-
-                done();
+                expect(err).to.not.exist();
+                stream.push(event);
             });
 
-            it('sends message on "log" string event', function (done) {
-
-                var reporter = new GoodSlack({ log: '*' }, '#channel',
-                'https://hooks.slack.com');
-                var now = Date.now();
-                var timeString = Moment.utc(now).format(internals.defaults.format);
-                var event = Hoek.clone(internals.log);
-                var ee = new EventEmitter();
-
-                event.timestamp = now;
-
-                reporter.start(ee, function (err) {
-
-                    expect(err).to.not.exist();
-                    ee.emit('report', 'log', event);
-                });
-
-                var data = {
-                    payload: Stringify({
-                        attachments: [{
-                            pretext: '`log` event from *localhost* at ' + timeString,
-                            'mrkdwn_in': ['pretext','text','fields'],
-                            fields: [{
-                                title: 'Tags',
-                                value: 'info'
-                            }, {
-                                title: 'Data',
-                                value: 'Server started at http://localhost:3000'
-                            }]
-                        }]
-                    })
-                };
-
-                Sinon.assert.calledOnce(spy);
-                Sinon.assert.calledWith(spy, 'post', 'https://hooks.slack.com', data);
-
-                done();
+            var data = Stringify({
+                attachments: [{
+                    pretext: '`error` event from *localhost* at ' + timeString,
+                    'mrkdwn_in': ['pretext','text','fields'],
+                    color: 'danger',
+                    fields:[{
+                        title: 'Error',
+                        value: 'Error: Something bad had happened'
+                    },{
+                        title: 'Stack',
+                        value: Util.format('```\n%s\n```', error.stack)
+                    }]
+                }]
             });
 
-            it('sends message on "log" object event', function (done) {
+            var request = function (method, uri, options) {
 
-                var reporter = new GoodSlack({ log: '*' }, '#channel',
-                'https://hooks.slack.com');
-                var now = Date.now();
-                var timeString = Moment.utc(now).format(internals.defaults.format);
-                var event = Hoek.clone(internals.log);
-                var ee = new EventEmitter();
-
-                event.timestamp = now;
-                event.data = { foo: 'bar', baz: 'foo' };
-
-                reporter.start(ee, function (err) {
-
-                    expect(err).to.not.exist();
-                    ee.emit('report', 'log', event);
-                });
-
-                var payload = Stringify(event.data, null, 2);
-
-                var data = {
-                    payload: Stringify({
-                        attachments: [{
-                            pretext: '`log` event from *localhost* at ' + timeString,
-                            'mrkdwn_in': ['pretext','text','fields'],
-                            fields: [{
-                                title: 'Tags',
-                                value: 'info'
-                            }, {
-                                title: 'Data',
-                                value: Util.format('```\n%s\n```', payload)
-                            }]
-                        }]
-                    })
-                };
-
-                Sinon.assert.calledOnce(spy);
-                Sinon.assert.calledWith(spy, 'post', 'https://hooks.slack.com', data);
-
+                expect(method).to.equal('post');
+                expect(uri).to.equal(internals.config.url);
+                expect(options.payload).to.deep.equal(data);
                 done();
+            };
+            revert = GoodSlack.__set__('Wreck', { request: request });
+        });
+
+        it('sends message on "log" string event', function (done) {
+
+            var reporter = new GoodSlack({ log: '*' }, internals.config);
+            var event = Hoek.clone(internals.log);
+
+            event.timestamp = now;
+
+            reporter.init(stream, null, function (err) {
+
+                expect(err).to.not.exist();
+                stream.push(event);
             });
 
-            it('sends message on "log" event without tags', function (done) {
-
-                var reporter = new GoodSlack({ log: '*' }, '#channel',
-                'https://hooks.slack.com');
-                var now = Date.now();
-                var timeString = Moment.utc(now).format(internals.defaults.format);
-                var event = Hoek.clone(internals.log);
-                var ee = new EventEmitter();
-
-                delete event.tags;
-
-                event.timestamp = now;
-
-                reporter.start(ee, function (err) {
-
-                    expect(err).to.not.exist();
-                    ee.emit('report', 'log', event);
-                });
-
-                var data = {
-                    payload: Stringify({
-                        attachments: [{
-                            pretext: '`log` event from *localhost* at ' + timeString,
-                            'mrkdwn_in': ['pretext','text','fields'],
-                            fields: [{
-                                title: 'Tags',
-                                value: ''
-                            }, {
-                                title: 'Data',
-                                value: 'Server started at http://localhost:3000'
-                            }]
-                        }]
-                    })
-                };
-
-                Sinon.assert.calledOnce(spy);
-                Sinon.assert.calledWith(spy, 'post', 'https://hooks.slack.com', data);
-
-                done();
+            var data = Stringify({
+                attachments: [{
+                    pretext: '`log` event from *localhost* at ' + timeString,
+                    'mrkdwn_in': ['pretext','text','fields'],
+                    fields: [{
+                        title: 'Tags',
+                        value: 'info'
+                    }, {
+                        title: 'Data',
+                        value: 'Server started at http://localhost:3000'
+                    }]
+                }]
             });
+
+            var request = function (method, uri, options) {
+
+                expect(method).to.equal('post');
+                expect(uri).to.equal(internals.config.url);
+                expect(options.payload).to.deep.equal(data);
+                done();
+            };
+            revert = GoodSlack.__set__('Wreck', { request: request });
+        });
+
+        it('sends message on "log" object event', function (done) {
+
+            var reporter = new GoodSlack({ log: '*' }, internals.config);
+            var event = Hoek.clone(internals.log);
+
+            event.timestamp = now;
+            event.data = { foo: 'bar', baz: 'foo' };
+
+            reporter.init(stream, null, function (err) {
+
+                expect(err).to.not.exist();
+                stream.push(event);
+            });
+
+            var payload = Stringify(event.data, null, 2);
+
+            var data = Stringify({
+                attachments: [{
+                    pretext: '`log` event from *localhost* at ' + timeString,
+                    'mrkdwn_in': ['pretext','text','fields'],
+                    fields: [{
+                        title: 'Tags',
+                        value: 'info'
+                    }, {
+                        title: 'Data',
+                        value: Util.format('```\n%s\n```', payload)
+                    }]
+                }]
+            });
+
+            var request = function (method, uri, options) {
+
+                expect(method).to.equal('post');
+                expect(uri).to.equal(internals.config.url);
+                expect(options.payload).to.deep.equal(data);
+                done();
+            };
+            revert = GoodSlack.__set__('Wreck', { request: request });
+        });
+
+        it('sends message on "log" event without tags', function (done) {
+
+            var reporter = new GoodSlack({ log: '*' }, internals.config);
+            var event = Hoek.clone(internals.log);
+
+            delete event.tags;
+
+            event.timestamp = now;
+
+            reporter.init(stream, null, function (err) {
+
+                expect(err).to.not.exist();
+                stream.push(event);
+            });
+
+            var data = Stringify({
+                attachments: [{
+                    pretext: '`log` event from *localhost* at ' + timeString,
+                    'mrkdwn_in': ['pretext','text','fields'],
+                    fields: [{
+                        title: 'Tags',
+                        value: ''
+                    }, {
+                        title: 'Data',
+                        value: 'Server started at http://localhost:3000'
+                    }]
+                }]
+            });
+
+            var request = function (method, uri, options) {
+
+                expect(method).to.equal('post');
+                expect(uri).to.equal(internals.config.url);
+                expect(options.payload).to.deep.equal(data);
+                done();
+            };
+            revert = GoodSlack.__set__('Wreck', { request: request });
         });
     });
 });
