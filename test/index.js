@@ -19,7 +19,6 @@ var internals = {
 };
 
 internals.config = {
-    channel: '#channel',
     url: 'https://hooks.slack.com'
 };
 
@@ -139,21 +138,14 @@ it('can be created without new', function (done) {
     done();
 });
 
-it('throws an error if missing channel', function (done) {
-
-    expect(function () {
-
-        new GoodSlack(null, { url: 'https://hooks.slack.com' });
-    }).to.throw('channel must be a string');
-
-    done();
-});
-
 it('throws an error if missing url', function (done) {
 
     expect(function () {
 
-        new GoodSlack(null, { channel: '#channel' });
+        var config = Hoek.clone(internals.config);
+        delete config.url;
+
+        new GoodSlack(null, config);
     }).to.throw('url must be a string');
 
     done();
@@ -163,7 +155,8 @@ it('applies config to defaults', function (done) {
 
     var config = Hoek.applyToDefaults(internals.config, {
         slack: {
-            username: 'testing-bot'
+            username: 'testing-bot',
+            channel: '#test'
         },
         format: 'lll'
     });
@@ -172,10 +165,10 @@ it('applies config to defaults', function (done) {
     expect(reporter).to.exist();
 
     expect(reporter._config).to.deep.equal({
-        channel: '#channel',
         url: 'https://hooks.slack.com',
         slack: {
-            username: 'testing-bot'
+            username: 'testing-bot',
+            channel: '#test'
         },
         format: 'lll'
     });
