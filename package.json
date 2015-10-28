@@ -1,6 +1,6 @@
 {
   "name": "good-slack",
-  "version": "2.0.0",
+  "version": "2.0.1",
   "repository": "git://github.com/dmacosta/good-slack",
   "description": "Slack Webhook message posting for Good process monitor",
   "main": "index.js",
