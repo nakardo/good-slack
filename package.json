@@ -22,6 +22,9 @@
     "lab": "^5.1.0",
     "rewire": "^2.1.3"
   },
+  "peerDependencies": {
+    "good": ">= 6.x.x"
+  },
   "engines": {
     "node": ">=0.10.x"
   }
