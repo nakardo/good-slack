@@ -138,6 +138,16 @@ it('can be created without new', function (done) {
     done();
 });
 
+it('throws an error if no config is passed', function (done) {
+
+    expect(function () {
+
+        new GoodSlack(null);
+    }).to.throw('url must be a string');
+
+    done();
+});
+
 it('throws an error if missing url', function (done) {
 
     expect(function () {
@@ -232,6 +242,7 @@ describe('_report()', function () {
                 attachments: [{
                     pretext: '`response` event from *localhost* at ' + timeString,
                     'mrkdwn_in': ['pretext','text','fields'],
+                    fallback: '200 POST /data',
                     color: 'good',
                     text: '*POST* /data {"name":"diego"} 200 (150ms)'
                 }]
@@ -255,6 +266,7 @@ describe('_report()', function () {
             event.timestamp = now;
             event.data = { name: 'diego' };
             var reqPayload = Stringify({ name: 'diego' }, null, 2);
+            var reqPayloadFallback = Stringify({ name: 'diego' });
 
             reporter.init(stream, null, function (err) {
 
@@ -266,10 +278,15 @@ describe('_report()', function () {
                 attachments: [{
                     pretext: '`request` event from *localhost* at ' + timeString,
                     'mrkdwn_in': ['pretext','text','fields'],
+                    fallback: Util.format('info %s', reqPayloadFallback),
+                    text: '*POST* /data',
                     fields: [{
-                        title: 'POST /data',
-                        value: 'PID: 10001 \nRequest ID: 23147901234:Machine1:73489:8uasdf98:10000'
-                    },{
+                        title: 'PID',
+                        value: '10001'
+                    }, {
+                        title: 'Request ID',
+                        value: '23147901234:Machine1:73489:8uasdf98:10000'
+                    }, {
                         title: 'Tags',
                         value: 'info'
                     }, {
@@ -307,11 +324,16 @@ describe('_report()', function () {
                 attachments: [{
                     pretext: '`request` event from *localhost* at ' + timeString,
                     'mrkdwn_in': ['pretext','text','fields'],
+                    fallback: 'error This is a request log',
+                    text: '*POST* /data',
                     color: 'danger',
                     fields: [{
-                        title: 'POST /data',
-                        value: 'PID: 10001 \nRequest ID: 23147901234:Machine1:73489:8uasdf98:10000'
-                    },{
+                        title: 'PID',
+                        value: '10001'
+                    }, {
+                        title: 'Request ID',
+                        value: '23147901234:Machine1:73489:8uasdf98:10000'
+                    }, {
                         title: 'Tags',
                         value: 'error'
                     }, {
@@ -349,6 +371,7 @@ describe('_report()', function () {
                 attachments: [{
                     pretext: '`response` event from *localhost* at ' + timeString,
                     'mrkdwn_in': ['pretext','text','fields'],
+                    fallback: '404 POST /data',
                     color: 'danger',
                     text: '*POST* /data {"name":"diego"} 404 (150ms)'
                 }]
@@ -380,6 +403,7 @@ describe('_report()', function () {
                 attachments: [{
                     pretext: '`ops` event from *localhost* at ' + timeString,
                     'mrkdwn_in': ['pretext','text','fields'],
+                    fallback: 'L: 1.62 | M: 29 Mb. | U: 6',
                     fields: [{
                         title: 'Memory',
                         value:'29 Mb.',
@@ -390,7 +414,7 @@ describe('_report()', function () {
                         short: true
                     }, {
                         title: 'Load',
-                        value: [1.650390625,1.6162109375,1.65234375],
+                        value: '1.65 | 1.62 | 1.65',
                         short: true
                     }]
                 }]
@@ -428,6 +452,8 @@ describe('_report()', function () {
                 attachments: [{
                     pretext: '`error` event from *localhost* at ' + timeString,
                     'mrkdwn_in': ['pretext','text','fields'],
+                    fallback: 'Error: Something bad had happened',
+                    text: '*GET* /search?name=diego',
                     color: 'danger',
                     fields:[{
                         title: 'Error',
@@ -466,6 +492,7 @@ describe('_report()', function () {
                 attachments: [{
                     pretext: '`log` event from *localhost* at ' + timeString,
                     'mrkdwn_in': ['pretext','text','fields'],
+                    fallback: 'info Server started at http://localhost:3000',
                     fields: [{
                         title: 'Tags',
                         value: 'info'
@@ -501,11 +528,13 @@ describe('_report()', function () {
             });
 
             var payload = Stringify(event.data, null, 2);
+            var payloadFallback = Stringify(event.data);
 
             var data = Stringify({
                 attachments: [{
                     pretext: '`log` event from *localhost* at ' + timeString,
                     'mrkdwn_in': ['pretext','text','fields'],
+                    fallback: Util.format('info %s', payloadFallback),
                     fields: [{
                         title: 'Tags',
                         value: 'info'
@@ -545,6 +574,7 @@ describe('_report()', function () {
                 attachments: [{
                     pretext: '`log` event from *localhost* at ' + timeString,
                     'mrkdwn_in': ['pretext','text','fields'],
+                    fallback: 'Server started at http://localhost:3000',
                     fields: [{
                         title: 'Tags',
                         value: ''
