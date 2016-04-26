@@ -594,5 +594,47 @@ describe('_report()', function () {
             };
             revert = GoodSlack.__set__('Wreck', { request: request });
         });
+
+        it('sends one message per event', function (done) {
+
+            var reporter = new GoodSlack({ response: '*' }, internals.config);
+            var event = Hoek.clone(internals.response);
+
+            event.timestamp = now;
+            event.statusCode = 404;
+
+            reporter.init(stream, null, function (err) {
+
+                expect(err).to.not.exist();
+                stream.push(event);
+                stream.push(event);
+            });
+
+            var data = Stringify({
+                attachments: [{
+                    pretext: '`response` event from *localhost* at ' + timeString,
+                    'mrkdwn_in': ['pretext','text','fields'],
+                    fallback: '404 POST /data',
+                    color: 'danger',
+                    text: '*POST* /data {"name":"diego"} 404 (150ms)'
+                }]
+            });
+
+            var calledOnce = false;
+
+            var request = function (method, uri, options) {
+
+                expect(method).to.equal('post');
+                expect(uri).to.equal(internals.config.url);
+                expect(options.payload).to.deep.equal(data);
+
+                if (calledOnce) {
+                    done();
+                } else {
+                    calledOnce = true;
+                }
+            };
+            revert = GoodSlack.__set__('Wreck', { request: request });
+        });
     });
 });
