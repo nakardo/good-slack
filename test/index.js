@@ -1,33 +1,39 @@
+'use strict';
+
 // Load modules
 
-var Stream = require('stream');
-var EventEmitter = require('events').EventEmitter;
-var Util = require('util');
-var Code = require('code');
-var Hoek = require('hoek');
-var Lab = require('lab');
-var Moment = require('moment');
-var Stringify = require('json-stringify-safe');
-var Rewire = require('rewire');
+const Stream = require('stream');
+const Util = require('util');
+const Code = require('code');
+const Hoek = require('hoek');
+const Lab = require('lab');
+const Moment = require('moment');
+const Stringify = require('fast-safe-stringify');
+const Rewire = require('rewire');
+const GoodSlack = Rewire('..');
+
 
 // Declare internals
 
-var internals = {
+const internals = {
     defaults: {
         format: 'YYMMDD/HHmmss.SSS'
     }
 };
 
+
 internals.config = {
     url: 'https://hooks.slack.com'
 };
 
-internals.readStream = function () {
 
-    var result = new Stream.Readable({ objectMode: true });
+internals.readStream = () => {
+
+    const result = new Stream.Readable({ objectMode: true });
     result._read = Hoek.ignore;
     return result;
 };
+
 
 internals.ops = {
     event: 'ops',
@@ -50,6 +56,7 @@ internals.ops = {
     pid: 64291
 };
 
+
 internals.response = {
     event: 'response',
     method: 'post',
@@ -67,6 +74,7 @@ internals.response = {
     }
 };
 
+
 internals.request = {
     event: 'request',
     timestamp: Date.now(),
@@ -77,6 +85,7 @@ internals.request = {
     pid: '10001',
     id: '23147901234:Machine1:73489:8uasdf98:10000'
 };
+
 
 internals.error = {
     event: 'error',
@@ -100,6 +109,7 @@ internals.error = {
     error: new Error('Something bad had happened')
 };
 
+
 internals.log = {
     event: 'log',
     timestamp: 1418873719797,
@@ -108,51 +118,45 @@ internals.log = {
     pid: 92682
 };
 
+
 // Test shortcuts
 
-var lab = exports.lab = Lab.script();
-var expect = Code.expect;
-var before = lab.before;
-var after = lab.after;
-var beforeEach = lab.beforeEach;
-var afterEach = lab.afterEach;
-var describe = lab.describe;
-var it = lab.it;
+const lab = exports.lab = Lab.script();
+const expect = Code.expect;
+const before = lab.before;
+const beforeEach = lab.beforeEach;
+const afterEach = lab.afterEach;
+const describe = lab.describe;
+const it = lab.it;
 
 
-var GoodSlack = Rewire('../lib');
+it('can be created with new', (done) => {
 
-it('can be created with new', function (done) {
-
-    var reporter = new GoodSlack(null, internals.config);
+    const reporter = new GoodSlack(null, internals.config);
     expect(reporter).to.exist();
 
     done();
 });
 
-it('can be created without new', function (done) {
+it('can be created without new', (done) => {
 
-    var reporter = GoodSlack(null, internals.config);
+    const reporter = GoodSlack(null, internals.config);
     expect(reporter).to.exist();
 
     done();
 });
 
-it('throws an error if no config is passed', function (done) {
+it('throws an error if no config is passed', (done) => {
 
-    expect(function () {
-
-        new GoodSlack(null);
-    }).to.throw('url must be a string');
-
+    expect(() => new GoodSlack(null)).to.throw('url must be a string');
     done();
 });
 
-it('throws an error if missing url', function (done) {
+it('throws an error if missing url', (done) => {
 
-    expect(function () {
+    expect(() => {
 
-        var config = Hoek.clone(internals.config);
+        const config = Hoek.clone(internals.config);
         delete config.url;
 
         new GoodSlack(null, config);
@@ -161,9 +165,9 @@ it('throws an error if missing url', function (done) {
     done();
 });
 
-it('applies config to defaults', function (done) {
+it('applies config to defaults', (done) => {
 
-    var config = Hoek.applyToDefaults(internals.config, {
+    const config = Hoek.applyToDefaults(internals.config, {
         slack: {
             username: 'testing-bot',
             channel: '#test'
@@ -171,7 +175,7 @@ it('applies config to defaults', function (done) {
         format: 'lll'
     });
 
-    var reporter = new GoodSlack(null, config);
+    const reporter = new GoodSlack(null, config);
     expect(reporter).to.exist();
 
     expect(reporter._config).to.deep.equal({
@@ -186,59 +190,59 @@ it('applies config to defaults', function (done) {
     done();
 });
 
-it('wraps json payload in markdown code format', function (done) {
+it('wraps json payload in markdown code format', (done) => {
 
-    var codeFormat = GoodSlack.__get__('internals.codeFormat');
+    const codeFormat = GoodSlack.__get__('internals.codeFormat');
 
-    var data = Stringify({ foo: 'bar', bar: 'baz' }, null, 2);
-    var response = Util.format('```\n%s\n```', data);
+    const data = Stringify({ foo: 'bar', bar: 'baz' }, null, 2);
+    const response = Util.format('```\n%s\n```', data);
 
     expect(response).to.equal(codeFormat(data));
 
     done();
 });
 
-describe('_report()', function () {
+describe('_report()', () => {
 
-    var revert;
-    var stream;
-    var now = Date.now();
-    var timeString = Moment.utc(now).format(internals.defaults.format);
+    let revert;
+    let stream;
+    const now = Date.now();
+    const timeString = Moment.utc(now).format(internals.defaults.format);
 
-    describe('_send()', function () {
+    describe('_send()', () => {
 
-        before(function (done) {
+        before((done) => {
 
             GoodSlack.__set__('internals.host', 'localhost');
             done();
         });
 
-        beforeEach(function (done) {
+        beforeEach((done) => {
 
             stream = internals.readStream();
             done();
         });
 
-        afterEach(function (done) {
+        afterEach((done) => {
 
             revert();
             done();
         });
 
-        it('sends message on "response" event on success', function (done) {
+        it('sends message on "response" event on success', (done) => {
 
-            var reporter = new GoodSlack({ response: '*' }, internals.config);
-            var event = Hoek.clone(internals.response);
+            const reporter = new GoodSlack({ response: '*' }, internals.config);
+            const event = Hoek.clone(internals.response);
 
             event.timestamp = now;
 
-            reporter.init(stream, null, function (err) {
+            reporter.init(stream, null, (err) => {
 
                 expect(err).to.not.exist();
                 stream.push(event);
             });
 
-            var data = Stringify({
+            const data = Stringify({
                 attachments: [{
                     pretext: '`response` event from *localhost* at ' + timeString,
                     'mrkdwn_in': ['pretext','text','fields'],
@@ -248,33 +252,33 @@ describe('_report()', function () {
                 }]
             });
 
-            var request = function (method, uri, options) {
+            const request = (method, uri, options) => {
 
                 expect(method).to.equal('post');
                 expect(uri).to.equal(internals.config.url);
                 expect(options.payload).to.deep.equal(data);
                 done();
             };
-            revert = GoodSlack.__set__('Wreck', { request: request });
+            revert = GoodSlack.__set__('Wreck', { request });
         });
 
-        it('sends message on "request" event with object', function (done) {
+        it('sends message on "request" event with object', (done) => {
 
-            var reporter = new GoodSlack({ request: '*' }, internals.config);
-            var event = Hoek.clone(internals.request);
+            const reporter = new GoodSlack({ request: '*' }, internals.config);
+            const event = Hoek.clone(internals.request);
 
             event.timestamp = now;
             event.data = { name: 'diego' };
-            var reqPayload = Stringify({ name: 'diego' }, null, 2);
-            var reqPayloadFallback = Stringify({ name: 'diego' });
+            const reqPayload = Stringify({ name: 'diego' }, null, 2);
+            const reqPayloadFallback = Stringify({ name: 'diego' });
 
-            reporter.init(stream, null, function (err) {
+            reporter.init(stream, null, (err) => {
 
                 expect(err).to.not.exist();
                 stream.push(event);
             });
 
-            var data = Stringify({
+            const data = Stringify({
                 attachments: [{
                     pretext: '`request` event from *localhost* at ' + timeString,
                     'mrkdwn_in': ['pretext','text','fields'],
@@ -296,31 +300,31 @@ describe('_report()', function () {
                 }]
             });
 
-            var request = function (method, uri, options) {
+            const request = (method, uri, options) => {
 
                 expect(method).to.equal('post');
                 expect(uri).to.equal(internals.config.url);
                 expect(options.payload).to.deep.equal(data);
                 done();
             };
-            revert = GoodSlack.__set__('Wreck', { request: request });
+            revert = GoodSlack.__set__('Wreck', { request });
         });
 
-        it('sends message on "request" event on error', function (done) {
+        it('sends message on "request" event on error', (done) => {
 
-            var reporter = new GoodSlack({ request: '*' }, internals.config);
-            var event = Hoek.clone(internals.request);
+            const reporter = new GoodSlack({ request: '*' }, internals.config);
+            const event = Hoek.clone(internals.request);
 
             event.tags = ['error'];
             event.timestamp = now;
 
-            reporter.init(stream, null, function (err) {
+            reporter.init(stream, null, (err) => {
 
                 expect(err).to.not.exist();
                 stream.push(event);
             });
 
-            var data = Stringify({
+            const data = Stringify({
                 attachments: [{
                     pretext: '`request` event from *localhost* at ' + timeString,
                     'mrkdwn_in': ['pretext','text','fields'],
@@ -343,31 +347,31 @@ describe('_report()', function () {
                 }]
             });
 
-            var request = function (method, uri, options) {
+            const request = (method, uri, options) => {
 
                 expect(method).to.equal('post');
                 expect(uri).to.equal(internals.config.url);
                 expect(options.payload).to.deep.equal(data);
                 done();
             };
-            revert = GoodSlack.__set__('Wreck', { request: request });
+            revert = GoodSlack.__set__('Wreck', { request });
         });
 
-        it('sends message on "response" event on error', function (done) {
+        it('sends message on "response" event on error', (done) => {
 
-            var reporter = new GoodSlack({ response: '*' }, internals.config);
-            var event = Hoek.clone(internals.response);
+            const reporter = new GoodSlack({ response: '*' }, internals.config);
+            const event = Hoek.clone(internals.response);
 
             event.timestamp = now;
             event.statusCode = 404;
 
-            reporter.init(stream, null, function (err) {
+            reporter.init(stream, null, (err) => {
 
                 expect(err).to.not.exist();
                 stream.push(event);
             });
 
-            var data = Stringify({
+            const data = Stringify({
                 attachments: [{
                     pretext: '`response` event from *localhost* at ' + timeString,
                     'mrkdwn_in': ['pretext','text','fields'],
@@ -377,29 +381,29 @@ describe('_report()', function () {
                 }]
             });
 
-            var request = function (method, uri, options) {
+            const request = (method, uri, options) => {
 
                 expect(method).to.equal('post');
                 expect(uri).to.equal(internals.config.url);
                 expect(options.payload).to.deep.equal(data);
                 done();
             };
-            revert = GoodSlack.__set__('Wreck', { request: request });
+            revert = GoodSlack.__set__('Wreck', { request });
         });
 
-        it('sends message on "ops" event', function (done) {
+        it('sends message on "ops" event', (done) => {
 
-            var reporter = new GoodSlack({ ops: '*' }, internals.config);
+            const reporter = new GoodSlack({ ops: '*' }, internals.config);
 
             internals.ops.timestamp = now;
 
-            reporter.init(stream, null, function (err) {
+            reporter.init(stream, null, (err) => {
 
                 expect(err).to.not.exist();
                 stream.push(internals.ops);
             });
 
-            var data = Stringify({
+            const data = Stringify({
                 attachments: [{
                     pretext: '`ops` event from *localhost* at ' + timeString,
                     'mrkdwn_in': ['pretext','text','fields'],
@@ -420,21 +424,21 @@ describe('_report()', function () {
                 }]
             });
 
-            var request = function (method, uri, options) {
+            const request = (method, uri, options) => {
 
                 expect(method).to.equal('post');
                 expect(uri).to.equal(internals.config.url);
                 expect(options.payload).to.deep.equal(data);
                 done();
             };
-            revert = GoodSlack.__set__('Wreck', { request: request });
+            revert = GoodSlack.__set__('Wreck', { request });
         });
 
-        it('sends message on "error" event', function (done) {
+        it('sends message on "error" event', (done) => {
 
-            var reporter = new GoodSlack({ error: '*' }, internals.config);
-            var event = Hoek.clone(internals.error);
-            var error = new Error('Something bad had happened');
+            const reporter = new GoodSlack({ error: '*' }, internals.config);
+            const event = Hoek.clone(internals.error);
+            const error = new Error('Something bad had happened');
 
             error.stack = 'Error: Something bad had happened\n' +
                 '    at Object.<anonymous> (/good-slack/test/index.js:79:10)';
@@ -442,13 +446,13 @@ describe('_report()', function () {
             event.timestamp = now;
             event.error = error;
 
-            reporter.init(stream, null, function (err) {
+            reporter.init(stream, null, (err) => {
 
                 expect(err).to.not.exist();
                 stream.push(event);
             });
 
-            var data = Stringify({
+            const data = Stringify({
                 attachments: [{
                     pretext: '`error` event from *localhost* at ' + timeString,
                     'mrkdwn_in': ['pretext','text','fields'],
@@ -465,30 +469,30 @@ describe('_report()', function () {
                 }]
             });
 
-            var request = function (method, uri, options) {
+            const request = (method, uri, options) => {
 
                 expect(method).to.equal('post');
                 expect(uri).to.equal(internals.config.url);
                 expect(options.payload).to.deep.equal(data);
                 done();
             };
-            revert = GoodSlack.__set__('Wreck', { request: request });
+            revert = GoodSlack.__set__('Wreck', { request });
         });
 
-        it('sends message on "log" string event', function (done) {
+        it('sends message on "log" string event', (done) => {
 
-            var reporter = new GoodSlack({ log: '*' }, internals.config);
-            var event = Hoek.clone(internals.log);
+            const reporter = new GoodSlack({ log: '*' }, internals.config);
+            const event = Hoek.clone(internals.log);
 
             event.timestamp = now;
 
-            reporter.init(stream, null, function (err) {
+            reporter.init(stream, null, (err) => {
 
                 expect(err).to.not.exist();
                 stream.push(event);
             });
 
-            var data = Stringify({
+            const data = Stringify({
                 attachments: [{
                     pretext: '`log` event from *localhost* at ' + timeString,
                     'mrkdwn_in': ['pretext','text','fields'],
@@ -503,34 +507,34 @@ describe('_report()', function () {
                 }]
             });
 
-            var request = function (method, uri, options) {
+            const request = (method, uri, options) => {
 
                 expect(method).to.equal('post');
                 expect(uri).to.equal(internals.config.url);
                 expect(options.payload).to.deep.equal(data);
                 done();
             };
-            revert = GoodSlack.__set__('Wreck', { request: request });
+            revert = GoodSlack.__set__('Wreck', { request });
         });
 
-        it('sends message on "log" object event', function (done) {
+        it('sends message on "log" object event', (done) => {
 
-            var reporter = new GoodSlack({ log: '*' }, internals.config);
-            var event = Hoek.clone(internals.log);
+            const reporter = new GoodSlack({ log: '*' }, internals.config);
+            const event = Hoek.clone(internals.log);
 
             event.timestamp = now;
             event.data = { foo: 'bar', baz: 'foo' };
 
-            reporter.init(stream, null, function (err) {
+            reporter.init(stream, null, (err) => {
 
                 expect(err).to.not.exist();
                 stream.push(event);
             });
 
-            var payload = Stringify(event.data, null, 2);
-            var payloadFallback = Stringify(event.data);
+            const payload = Stringify(event.data, null, 2);
+            const payloadFallback = Stringify(event.data);
 
-            var data = Stringify({
+            const data = Stringify({
                 attachments: [{
                     pretext: '`log` event from *localhost* at ' + timeString,
                     'mrkdwn_in': ['pretext','text','fields'],
@@ -545,32 +549,32 @@ describe('_report()', function () {
                 }]
             });
 
-            var request = function (method, uri, options) {
+            const request = (method, uri, options) => {
 
                 expect(method).to.equal('post');
                 expect(uri).to.equal(internals.config.url);
                 expect(options.payload).to.deep.equal(data);
                 done();
             };
-            revert = GoodSlack.__set__('Wreck', { request: request });
+            revert = GoodSlack.__set__('Wreck', { request });
         });
 
-        it('sends message on "log" event without tags', function (done) {
+        it('sends message on "log" event without tags', (done) => {
 
-            var reporter = new GoodSlack({ log: '*' }, internals.config);
-            var event = Hoek.clone(internals.log);
+            const reporter = new GoodSlack({ log: '*' }, internals.config);
+            const event = Hoek.clone(internals.log);
 
             delete event.tags;
 
             event.timestamp = now;
 
-            reporter.init(stream, null, function (err) {
+            reporter.init(stream, null, (err) => {
 
                 expect(err).to.not.exist();
                 stream.push(event);
             });
 
-            var data = Stringify({
+            const data = Stringify({
                 attachments: [{
                     pretext: '`log` event from *localhost* at ' + timeString,
                     'mrkdwn_in': ['pretext','text','fields'],
@@ -585,32 +589,32 @@ describe('_report()', function () {
                 }]
             });
 
-            var request = function (method, uri, options) {
+            const request = (method, uri, options) => {
 
                 expect(method).to.equal('post');
                 expect(uri).to.equal(internals.config.url);
                 expect(options.payload).to.deep.equal(data);
                 done();
             };
-            revert = GoodSlack.__set__('Wreck', { request: request });
+            revert = GoodSlack.__set__('Wreck', { request });
         });
 
-        it('sends one message per event', function (done) {
+        it('sends one message per event', (done) => {
 
-            var reporter = new GoodSlack({ response: '*' }, internals.config);
-            var event = Hoek.clone(internals.response);
+            const reporter = new GoodSlack({ response: '*' }, internals.config);
+            const event = Hoek.clone(internals.response);
 
             event.timestamp = now;
             event.statusCode = 404;
 
-            reporter.init(stream, null, function (err) {
+            reporter.init(stream, null, (err) => {
 
                 expect(err).to.not.exist();
                 stream.push(event);
                 stream.push(event);
             });
 
-            var data = Stringify({
+            const data = Stringify({
                 attachments: [{
                     pretext: '`response` event from *localhost* at ' + timeString,
                     'mrkdwn_in': ['pretext','text','fields'],
@@ -620,21 +624,20 @@ describe('_report()', function () {
                 }]
             });
 
-            var calledOnce = false;
+            let calledOnce = false;
 
-            var request = function (method, uri, options) {
+            const request = (method, uri, options) => {
 
                 expect(method).to.equal('post');
                 expect(uri).to.equal(internals.config.url);
                 expect(options.payload).to.deep.equal(data);
 
                 if (calledOnce) {
-                    done();
-                } else {
-                    calledOnce = true;
+                    return done();
                 }
+                calledOnce = true;
             };
-            revert = GoodSlack.__set__('Wreck', { request: request });
+            revert = GoodSlack.__set__('Wreck', { request });
         });
     });
 });
