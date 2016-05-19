@@ -16,7 +16,7 @@ Creates a new GoodSlack object with the following arguments:
   - `url` - a string with the Webhook URL
   - `[slack]` - an object of slack overridable parameters (See [Incoming Webhooks](https://api.slack.com/incoming-webhooks))
   - `[format]` - [MomentJS](http://momentjs.com/docs/#/displaying/format/) format string. Defaults to 'YYMMDD/HHmmss.SSS'.
-  - `[host]` - server hostname. - Defaults to machine hostname.
+  - `[host]` - a string with the server hostname. - Defaults to actual hostname.
 
 ## Compatibility
 
