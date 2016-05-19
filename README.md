@@ -20,4 +20,4 @@ Creates a new GoodSlack object with the following arguments:
 
 ## Compatibility
 
-This version is compatible with `Good >= 7.0.0` which introduced major changes on [reporter interface](https://github.com/hapijs/good/blob/master/API.md#reporter-interface). For `6.x.x` support use  [v.2.2.1](https://github.com/dmacosta/good-slack/tree/v2.1.1).
+This version is compatible with `good@7.x.x` which introduced major changes on [reporter interface](https://github.com/hapijs/good/blob/master/API.md#reporter-interface). For `6.x.x` support use  [v2.2.1](https://github.com/dmacosta/good-slack/tree/v2.1.1).
