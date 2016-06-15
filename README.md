@@ -18,6 +18,34 @@ Creates a new GoodSlack object with the following arguments:
   - `[format]` - [MomentJS](http://momentjs.com/docs/#/displaying/format/) format string. Defaults to 'YYMMDD/HHmmss.SSS'.
   - `[host]` - a string with the server hostname. - Defaults to actual hostname.
 
+## Using with Hapi
+
+Below is an example of using `good-slack` and `good-squeeze` together in a Hapi server to log all internal error messages to a slack channel.
+
+```js
+const Hapi = require('hapi');
+const Server = new Hapi.Server();
+Server.connection();
+
+Server.register([
+  {
+    register: require('good'),
+    options: {
+      reporters: {
+        slack: [{
+          module: 'good-squeeze',
+          name: 'Squeeze',
+          args: [{ error: '*' }]
+        }, {
+          module: 'good-slack',
+          args: [{ url: 'https://hook.slack.com/services/UNIQUE_SLACK_CHANNEL_URL' }]
+        }]
+      }
+    }
+  }
+], (err) => {});
+```
+
 ## Compatibility
 
 This version is compatible with `good@7.x.x` which introduced major changes on [reporter interface](https://github.com/hapijs/good/blob/master/API.md#reporter-interface). For `6.x.x` support use  [v2.2.1](https://github.com/dmacosta/good-slack/tree/v2.1.1).
