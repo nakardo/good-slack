@@ -2,7 +2,7 @@
 
 Slack Webhook message posting for Good process monitor
 
-[![Build Status](https://travis-ci.org/dmacosta/good-slack.svg)](https://travis-ci.org/dmacosta/good-slack) ![Current Version](https://img.shields.io/npm/v/good-slack.svg)
+[![Build Status](https://travis-ci.org/nakardo/good-slack.svg)](https://travis-ci.org/nakardo/good-slack) ![Current Version](https://img.shields.io/npm/v/good-slack.svg)
 
 ## Usage
 
@@ -48,4 +48,4 @@ Server.register([
 
 ## Compatibility
 
-This version is compatible with `good@7.x.x` which introduced major changes on [reporter interface](https://github.com/hapijs/good/blob/master/API.md#reporter-interface). For `6.x.x` support use  [v2.2.1](https://github.com/dmacosta/good-slack/tree/v2.1.1).
+This version is compatible with `good@7.x.x` which introduced major changes on [reporter interface](https://github.com/hapijs/good/blob/master/API.md#reporter-interface). For `6.x.x` support use  [v2.2.1](https://github.com/nakardo/good-slack/tree/v2.1.1).
