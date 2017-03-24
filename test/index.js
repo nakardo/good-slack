@@ -640,7 +640,7 @@ describe('events', () => {
         });
     });
 
-    it('sends basic message on unrecognised event', (done) => {
+    it('sends message on "log" event as basic text message', (done) => {
 
         const payload = Stringify({
             text: 'basic message'
@@ -668,11 +668,12 @@ describe('events', () => {
 
             const reporter = new GoodSlack({
                 url: internals.getUri(server),
-                host: 'localhost'
+                host: 'localhost',
+                basicLogEvent: true
             });
 
             stream.pipe(reporter);
-            stream.push({ event: 'custom', data: 'basic message' });
+            stream.push({ event: 'log', data: 'basic message' });
         });
     });
 
