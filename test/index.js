@@ -640,6 +640,42 @@ describe('events', () => {
         });
     });
 
+    it('sends basic message on unrecognised event', (done) => {
+
+        const payload = Stringify({
+            text: 'basic message'
+        });
+
+        const stream = internals.readStream();
+        const server = Http.createServer((req, res) => {
+
+            let data = '';
+
+            req.on('data', (chunk) => {
+
+                data += chunk;
+            });
+
+            req.on('end', () => {
+
+                expect(data).to.deep.equal(payload);
+                res.end();
+                server.close(done);
+            });
+        });
+
+        server.listen(0, 'localhost', () => {
+
+            const reporter = new GoodSlack({
+                url: internals.getUri(server),
+                host: 'localhost'
+            });
+
+            stream.pipe(reporter);
+            stream.push({ event: 'custom', data: 'basic message' });
+        });
+    });
+
     it('sends one message per event', (done) => {
 
         const payload = Stringify({
