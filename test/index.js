@@ -643,7 +643,7 @@ describe('events', () => {
     it('sends message on "log" event as basic text message', (done) => {
 
         const payload = Stringify({
-            text: 'basic message'
+            text: 'Server started at http://localhost'
         });
 
         const stream = internals.readStream();
@@ -672,8 +672,12 @@ describe('events', () => {
                 basicLogEvent: true
             });
 
+            const event = Hoek.clone(internals.events.log);
+            event.timestamp = now;
+            delete event.tags;
+
             stream.pipe(reporter);
-            stream.push({ event: 'log', data: 'basic message' });
+            stream.push(event);
         });
     });
 
