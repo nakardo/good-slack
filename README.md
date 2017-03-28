@@ -17,7 +17,7 @@ Creates a new GoodSlack object with the following arguments:
   - `[slack]` - an object of slack overridable parameters (See [Incoming Webhooks](https://api.slack.com/incoming-webhooks))
   - `[format]` - [MomentJS](http://momentjs.com/docs/#/displaying/format/) format string. Defaults to 'YYMMDD/HHmmss.SSS'.
   - `[host]` - a string with the server hostname. - Defaults to actual hostname.
-  - `[basicLogEvent]` - a boolean to set the style of `log` events. When set to true, `log` events will be sent as text instead of attachments.
+  - `[basicLogEvent]` - a boolean to set the style of `log` events. When set to true, `log` events will be sent as text instead of attachments. Defaults to `false`.
 
 ## Using with Hapi
 
