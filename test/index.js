@@ -640,6 +640,47 @@ describe('events', () => {
         });
     });
 
+    it('sends message on "log" event as basic text message', (done) => {
+
+        const payload = Stringify({
+            text: 'Server started at http://localhost'
+        });
+
+        const stream = internals.readStream();
+        const server = Http.createServer((req, res) => {
+
+            let data = '';
+
+            req.on('data', (chunk) => {
+
+                data += chunk;
+            });
+
+            req.on('end', () => {
+
+                expect(data).to.deep.equal(payload);
+                res.end();
+                server.close(done);
+            });
+        });
+
+        server.listen(0, 'localhost', () => {
+
+            const reporter = new GoodSlack({
+                url: internals.getUri(server),
+                host: 'localhost',
+                basicLogEvent: true
+            });
+
+            const event = Hoek.clone(internals.events.log);
+            event.timestamp = now;
+            delete event.tags;
+
+            stream.pipe(reporter);
+            stream.push(event);
+        });
+    });
+
     it('sends one message per event', (done) => {
 
         const payload = Stringify({
