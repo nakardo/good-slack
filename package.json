@@ -13,8 +13,8 @@
   "author": "Diego Acosta <diegonake@gmail.com>",
   "license": "MIT",
   "dependencies": {
-    "fast-safe-stringify": "1.x.x",
     "hoek": "4.x.x",
+    "json-stringify-safe": "^5.0.1",
     "moment": "2.x.x",
     "wreck": "7.x.x"
   },

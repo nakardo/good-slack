@@ -9,7 +9,7 @@ const Code = require('code');
 const Hoek = require('hoek');
 const Lab = require('lab');
 const Moment = require('moment');
-const Stringify = require('fast-safe-stringify');
+const Stringify = require('json-stringify-safe');
 const GoodSlack = require('..');
 
 
@@ -213,11 +213,15 @@ describe('events', () => {
 
     it('sends message on "request" event with object', (done) => {
 
+        const objectData = { name: 'diego' };
+        const stringifiedData = '{"name":"diego"}';
+        const prettifiedData = '{\n  "name": "diego"\n}';
+
         const payload = Stringify({
             attachments: [{
                 pretext: '`request` event from *localhost* at ' + timestamp,
                 'mrkdwn_in': ['pretext','text','fields'],
-                fallback: `info ${Stringify({ name: 'diego' })}`,
+                fallback: `info ${stringifiedData}`,
                 text: '*POST* /data',
                 fields: [{
                     title: 'PID',
@@ -230,7 +234,7 @@ describe('events', () => {
                     value: 'info'
                 }, {
                     title: 'Data',
-                    value: Util.format('```\n%s\n```', Stringify({ name: 'diego' }, null, 2))
+                    value: Util.format('```\n%s\n```', prettifiedData)
                 }]
             }]
         });
@@ -262,7 +266,7 @@ describe('events', () => {
 
             const event = Hoek.clone(internals.events.request);
             event.timestamp = now;
-            event.data = { name: 'diego' };
+            event.data = objectData;
 
             stream.pipe(reporter);
             stream.push(event);
@@ -540,17 +544,21 @@ describe('events', () => {
 
     it('sends message on "log" object event', (done) => {
 
+        const objectData = { foo: 'bar', baz: 'foo' };
+        const stringifiedData = '{"foo":"bar","baz":"foo"}';
+        const prettifiedData = '{\n  "foo": "bar",\n  "baz": "foo"\n}';
+
         const payload = Stringify({
             attachments: [{
                 pretext: '`log` event from *localhost* at ' + timestamp,
                 'mrkdwn_in': ['pretext','text','fields'],
-                fallback: `info ${Stringify({ foo: 'bar', baz: 'foo' })}`,
+                fallback: `info ${stringifiedData}`,
                 fields: [{
                     title: 'Tags',
                     value: 'info'
                 }, {
                     title: 'Data',
-                    value: Util.format('```\n%s\n```', Stringify({ foo: 'bar', baz: 'foo' }, null, 2))
+                    value: Util.format('```\n%s\n```', prettifiedData)
                 }]
             }]
         });
@@ -582,7 +590,7 @@ describe('events', () => {
 
             const event = Hoek.clone(internals.events.log);
             event.timestamp = now;
-            event.data = { foo: 'bar', baz: 'foo' };
+            event.data = objectData;
 
             stream.pipe(reporter);
             stream.push(event);
