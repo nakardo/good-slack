@@ -446,7 +446,7 @@ describe('events', () => {
                 pretext: '`error` event from *localhost* at ' + timestamp,
                 'mrkdwn_in': ['pretext','text','fields'],
                 fallback: 'Error: Something bad had happened',
-                text: '*GET* /search?name=diego',
+                text: '*GET* /search',
                 color: 'danger',
                 fields:[{
                     title: 'Error',
