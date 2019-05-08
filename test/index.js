@@ -775,13 +775,46 @@ describe('events', () => {
 
                 stream.pipe(reporter);
                 stream.push(event);
+                stream.push(event);
+            });
+        });
+    });
 
+    it('handles slack write errors', async () => {
 
-                const event2 = Hoek.clone(internals.events.response);
-                event2.timestamp = now;
-                event2.statusCode = 404;
+        return await new Promise((resolve) => {
 
-                stream.push(event2);
+            const stream = internals.readStream();
+            const server = Http.createServer((req, res) => {
+
+                req.on('data', (chunk) => {});
+
+                req.on('end', () => {
+
+                    res.statusCode = 404;
+                    res.end();
+                });
+            });
+
+            server.listen(0, 'localhost', () => {
+
+                const reporter = new GoodSlack({
+                    url: internals.getUri(server),
+                    host: 'localhost'
+                });
+
+                reporter.on('error', (e) => {
+
+                    expect(e.isBoom).to.be.true();
+                    expect(e.output.statusCode).to.equal(404);
+                    return resolve();
+                });
+
+                const event = Hoek.clone(internals.events.log);
+                event.timestamp = now;
+
+                stream.pipe(reporter);
+                stream.push(event);
             });
         });
     });
