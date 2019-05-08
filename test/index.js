@@ -5,9 +5,9 @@
 const Util = require('util');
 const Http = require('http');
 const Stream = require('stream');
-const Code = require('code');
-const Hoek = require('hoek');
-const Lab = require('lab');
+const Code = require('@hapi/code');
+const Hoek = require('@hapi/hoek');
+const Lab = require('@hapi/lab');
 const Moment = require('moment');
 const Stringify = require('json-stringify-safe');
 const GoodSlack = require('..');
@@ -121,27 +121,23 @@ const describe = lab.describe;
 const it = lab.it;
 
 
-it('has to be created with new', (done) => {
+it('has to be created with new', () => {
 
     const reporter = new GoodSlack({ url: 'localhost' });
     expect(reporter).to.exist();
-
-    done();
 });
 
-it('throws an error if no config is passed', (done) => {
+it('throws an error if no config is passed', () => {
 
     expect(() => new GoodSlack()).to.throw('url must be a string');
-    done();
 });
 
-it('throws an error if missing url', (done) => {
+it('throws an error if missing url', () => {
 
     expect(() => new GoodSlack({ })).to.throw('url must be a string');
-    done();
 });
 
-it('applies config to defaults', (done) => {
+it('applies config to defaults', () => {
 
     const config = {
         url: 'localhost',
@@ -156,9 +152,7 @@ it('applies config to defaults', (done) => {
     const reporter = new GoodSlack(config);
     expect(reporter).to.exist();
 
-    expect(reporter._config).to.deep.equal(config);
-
-    done();
+    expect(reporter._config).to.equal(config);
 });
 
 describe('events', () => {
@@ -166,579 +160,629 @@ describe('events', () => {
     const now = Date.now();
     const timestamp = Moment.utc(now).format('YYMMDD/HHmmss.SSS');
 
-    it('sends message on "response" event on success', (done) => {
+    it('sends message on "response" event on success', async () => {
 
-        const payload = Stringify({
-            attachments: [{
-                pretext: '`response` event from *localhost* at ' + timestamp,
-                'mrkdwn_in': ['pretext','text','fields'],
-                fallback: '200 POST /data',
-                color: 'good',
-                text: '*POST* /data {"name":"diego"} 200 (150ms)'
-            }]
-        });
+        return await new Promise((resolve) => {
 
-        const stream = internals.readStream();
-        const server = Http.createServer((req, res) => {
-
-            let data = '';
-
-            req.on('data', (chunk) => {
-
-                data += chunk;
-            });
-
-            req.on('end', () => {
-
-                expect(data).to.deep.equal(payload);
-                res.end();
-                server.close(done);
-            });
-        });
-
-        server.listen(0, 'localhost', () => {
-
-            const reporter = new GoodSlack({
-                url: internals.getUri(server),
-                host: 'localhost'
-            });
-
-            const event = Hoek.clone(internals.events.response);
-            event.timestamp = now;
-
-            stream.pipe(reporter);
-            stream.push(event);
-        });
-    });
-
-    it('sends message on "request" event with object', (done) => {
-
-        const objectData = { name: 'diego' };
-        const stringifiedData = '{"name":"diego"}';
-        const prettifiedData = '{\n  "name": "diego"\n}';
-
-        const payload = Stringify({
-            attachments: [{
-                pretext: '`request` event from *localhost* at ' + timestamp,
-                'mrkdwn_in': ['pretext','text','fields'],
-                fallback: `info ${stringifiedData}`,
-                text: '*POST* /data',
-                fields: [{
-                    title: 'PID',
-                    value: '10001'
-                }, {
-                    title: 'Request ID',
-                    value: '23147901234:Machine1:73489:8uasdf98:10000'
-                }, {
-                    title: 'Tags',
-                    value: 'info'
-                }, {
-                    title: 'Data',
-                    value: Util.format('```\n%s\n```', prettifiedData)
+            const payload = Stringify({
+                attachments: [{
+                    pretext: '`response` event from *localhost* at ' + timestamp,
+                    'mrkdwn_in': ['pretext','text','fields'],
+                    fallback: '200 POST /data',
+                    color: 'good',
+                    text: '*POST* /data {"name":"diego"} 200 (150ms)'
                 }]
-            }]
-        });
-
-        const stream = internals.readStream();
-        const server = Http.createServer((req, res) => {
-
-            let data = '';
-
-            req.on('data', (chunk) => {
-
-                data += chunk;
             });
 
-            req.on('end', () => {
+            const stream = internals.readStream();
+            const server = Http.createServer((req, res) => {
 
-                expect(data).to.deep.equal(payload);
-                res.end();
-                server.close(done);
+                let data = '';
+
+                req.on('data', (chunk) => {
+
+                    data += chunk;
+                });
+
+                req.on('end', () => {
+
+                    expect(data).to.equal(payload);
+                    res.end();
+                    server.close();
+                    return resolve();
+                });
             });
-        });
 
-        server.listen(0, 'localhost', () => {
+            server.listen(0, 'localhost', () => {
 
-            const reporter = new GoodSlack({
-                url: internals.getUri(server),
-                host: 'localhost'
+                const reporter = new GoodSlack({
+                    url: internals.getUri(server),
+                    host: 'localhost'
+                });
+
+                const event = Hoek.clone(internals.events.response);
+                event.timestamp = now;
+
+                stream.pipe(reporter);
+                stream.push(event);
             });
-
-            const event = Hoek.clone(internals.events.request);
-            event.timestamp = now;
-            event.data = objectData;
-
-            stream.pipe(reporter);
-            stream.push(event);
         });
     });
 
-    it('sends message on "request" event on error', (done) => {
+    it('sends message on "request" event with object', async () => {
 
-        const payload = Stringify({
-            attachments: [{
-                pretext: '`request` event from *localhost* at ' + timestamp,
-                'mrkdwn_in': ['pretext','text','fields'],
-                fallback: 'error This is a request log',
-                text: '*POST* /data',
-                color: 'danger',
-                fields: [{
-                    title: 'PID',
-                    value: '10001'
-                }, {
-                    title: 'Request ID',
-                    value: '23147901234:Machine1:73489:8uasdf98:10000'
-                }, {
-                    title: 'Tags',
-                    value: 'error'
-                }, {
-                    title: 'Data',
-                    value: 'This is a request log'
+        return await new Promise((resolve) => {
+
+            const objectData = { name: 'diego' };
+            const stringifiedData = '{"name":"diego"}';
+            const prettifiedData = '{\n  "name": "diego"\n}';
+
+            const payload = Stringify({
+                attachments: [{
+                    pretext: '`request` event from *localhost* at ' + timestamp,
+                    'mrkdwn_in': ['pretext','text','fields'],
+                    fallback: `info ${stringifiedData}`,
+                    text: '*POST* /data',
+                    fields: [{
+                        title: 'PID',
+                        value: '10001'
+                    }, {
+                        title: 'Request ID',
+                        value: '23147901234:Machine1:73489:8uasdf98:10000'
+                    }, {
+                        title: 'Tags',
+                        value: 'info'
+                    }, {
+                        title: 'Data',
+                        value: Util.format('```\n%s\n```', prettifiedData)
+                    }]
                 }]
-            }]
-        });
-
-        const stream = internals.readStream();
-        const server = Http.createServer((req, res) => {
-
-            let data = '';
-
-            req.on('data', (chunk) => {
-
-                data += chunk;
             });
 
-            req.on('end', () => {
+            const stream = internals.readStream();
+            const server = Http.createServer((req, res) => {
 
-                expect(data).to.deep.equal(payload);
-                res.end();
-                server.close(done);
+                let data = '';
+
+                req.on('data', (chunk) => {
+
+                    data += chunk;
+                });
+
+                req.on('end', () => {
+
+                    expect(data).to.equal(payload);
+                    res.end();
+                    server.close();
+                    return resolve();
+                });
             });
-        });
 
-        server.listen(0, 'localhost', () => {
+            server.listen(0, 'localhost', () => {
 
-            const reporter = new GoodSlack({
-                url: internals.getUri(server),
-                host: 'localhost'
+                const reporter = new GoodSlack({
+                    url: internals.getUri(server),
+                    host: 'localhost'
+                });
+
+                const event = Hoek.clone(internals.events.request);
+                event.timestamp = now;
+                event.data = objectData;
+
+                stream.pipe(reporter);
+                stream.push(event);
             });
-
-            const event = Hoek.clone(internals.events.request);
-            event.tags = ['error'];
-            event.timestamp = now;
-
-            stream.pipe(reporter);
-            stream.push(event);
         });
     });
 
-    it('sends message on "response" event on error', (done) => {
+    it('sends message on "request" event on error', async () => {
 
-        const payload = Stringify({
-            attachments: [{
-                pretext: '`response` event from *localhost* at ' + timestamp,
-                'mrkdwn_in': ['pretext','text','fields'],
-                fallback: '404 POST /data',
-                color: 'danger',
-                text: '*POST* /data {"name":"diego"} 404 (150ms)'
-            }]
-        });
+        return await new Promise((resolve) => {
 
-        const stream = internals.readStream();
-        const server = Http.createServer((req, res) => {
-
-            let data = '';
-
-            req.on('data', (chunk) => {
-
-                data += chunk;
-            });
-
-            req.on('end', () => {
-
-                expect(data).to.deep.equal(payload);
-                res.end();
-                server.close(done);
-            });
-        });
-
-        server.listen(0, 'localhost', () => {
-
-            const reporter = new GoodSlack({
-                url: internals.getUri(server),
-                host: 'localhost'
-            });
-
-            const event = Hoek.clone(internals.events.response);
-            event.timestamp = now;
-            event.statusCode = 404;
-
-            stream.pipe(reporter);
-            stream.push(event);
-        });
-    });
-
-    it('sends message on "ops" event', (done) => {
-
-        const payload = Stringify({
-            attachments: [{
-                pretext: '`ops` event from *localhost* at ' + timestamp,
-                'mrkdwn_in': ['pretext','text','fields'],
-                fallback: 'L: 1.62 | M: 29 Mb. | U: 6',
-                fields: [{
-                    title: 'Memory',
-                    value:'29 Mb.',
-                    short: true
-                }, {
-                    title: 'Uptime (seconds)',
-                    value: 6,
-                    short: true
-                }, {
-                    title: 'Load',
-                    value: '1.65 | 1.62 | 1.65',
-                    short: true
+            const payload = Stringify({
+                attachments: [{
+                    pretext: '`request` event from *localhost* at ' + timestamp,
+                    'mrkdwn_in': ['pretext','text','fields'],
+                    fallback: 'error This is a request log',
+                    text: '*POST* /data',
+                    color: 'danger',
+                    fields: [{
+                        title: 'PID',
+                        value: '10001'
+                    }, {
+                        title: 'Request ID',
+                        value: '23147901234:Machine1:73489:8uasdf98:10000'
+                    }, {
+                        title: 'Tags',
+                        value: 'error'
+                    }, {
+                        title: 'Data',
+                        value: 'This is a request log'
+                    }]
                 }]
-            }]
-        });
-
-        const stream = internals.readStream();
-        const server = Http.createServer((req, res) => {
-
-            let data = '';
-
-            req.on('data', (chunk) => {
-
-                data += chunk;
             });
 
-            req.on('end', () => {
+            const stream = internals.readStream();
+            const server = Http.createServer((req, res) => {
 
-                expect(data).to.deep.equal(payload);
-                res.end();
-                server.close(done);
+                let data = '';
+
+                req.on('data', (chunk) => {
+
+                    data += chunk;
+                });
+
+                req.on('end', () => {
+
+                    expect(data).to.equal(payload);
+                    res.end();
+                    server.close();
+                    return resolve();
+                });
             });
-        });
 
-        server.listen(0, 'localhost', () => {
+            server.listen(0, 'localhost', () => {
 
-            const reporter = new GoodSlack({
-                url: internals.getUri(server),
-                host: 'localhost'
+                const reporter = new GoodSlack({
+                    url: internals.getUri(server),
+                    host: 'localhost'
+                });
+
+                const event = Hoek.clone(internals.events.request);
+                event.tags = ['error'];
+                event.timestamp = now;
+
+                stream.pipe(reporter);
+                stream.push(event);
             });
-
-            const event = Hoek.clone(internals.events.ops);
-            event.timestamp = now;
-            event.statusCode = 404;
-
-            stream.pipe(reporter);
-            stream.push(event);
         });
     });
 
-    it('sends message on "error" event', (done) => {
+    it('sends message on "response" event on error', async () => {
 
-        const error = new Error('Something bad had happened');
-        error.stack = 'Error: Something bad had happened\n' +
-            '    at Object.<anonymous> (/good-slack/test/index.js:79:10)';
+        return await new Promise((resolve) => {
 
-        const payload = Stringify({
-            attachments: [{
-                pretext: '`error` event from *localhost* at ' + timestamp,
-                'mrkdwn_in': ['pretext','text','fields'],
-                fallback: 'Error: Something bad had happened',
-                text: '*GET* /search',
-                color: 'danger',
-                fields:[{
-                    title: 'Error',
-                    value: 'Error: Something bad had happened'
-                },{
-                    title: 'Stack',
-                    value: Util.format('```\n%s\n```', error.stack)
+            const payload = Stringify({
+                attachments: [{
+                    pretext: '`response` event from *localhost* at ' + timestamp,
+                    'mrkdwn_in': ['pretext','text','fields'],
+                    fallback: '404 POST /data',
+                    color: 'danger',
+                    text: '*POST* /data {"name":"diego"} 404 (150ms)'
                 }]
-            }]
-        });
-
-        const stream = internals.readStream();
-        const server = Http.createServer((req, res) => {
-
-            let data = '';
-
-            req.on('data', (chunk) => {
-
-                data += chunk;
             });
 
-            req.on('end', () => {
+            const stream = internals.readStream();
+            const server = Http.createServer((req, res) => {
 
-                expect(data).to.deep.equal(payload);
-                res.end();
-                server.close(done);
+                let data = '';
+
+                req.on('data', (chunk) => {
+
+                    data += chunk;
+                });
+
+                req.on('end', () => {
+
+                    expect(data).to.equal(payload);
+                    res.end();
+                    server.close();
+                    return resolve();
+                });
             });
-        });
 
-        server.listen(0, 'localhost', () => {
+            server.listen(0, 'localhost', () => {
 
-            const reporter = new GoodSlack({
-                url: internals.getUri(server),
-                host: 'localhost'
+                const reporter = new GoodSlack({
+                    url: internals.getUri(server),
+                    host: 'localhost'
+                });
+
+                const event = Hoek.clone(internals.events.response);
+                event.timestamp = now;
+                event.statusCode = 404;
+
+                stream.pipe(reporter);
+                stream.push(event);
             });
-
-            const event = Hoek.clone(internals.events.error);
-            event.timestamp = now;
-            event.error = error;
-
-            stream.pipe(reporter);
-            stream.push(event);
         });
     });
 
-    it('sends message on "log" string event', (done) => {
+    it('sends message on "ops" event', async () => {
 
-        const payload = Stringify({
-            attachments: [{
-                pretext: '`log` event from *localhost* at ' + timestamp,
-                'mrkdwn_in': ['pretext','text','fields'],
-                fallback: 'info Server started at http://localhost',
-                fields: [{
-                    title: 'Tags',
-                    value: 'info'
-                }, {
-                    title: 'Data',
-                    value: 'Server started at http://localhost'
+        return await new Promise((resolve) => {
+
+            const payload = Stringify({
+                attachments: [{
+                    pretext: '`ops` event from *localhost* at ' + timestamp,
+                    'mrkdwn_in': ['pretext','text','fields'],
+                    fallback: 'L: 1.62 | M: 29 Mb. | U: 6',
+                    fields: [{
+                        title: 'Memory',
+                        value:'29 Mb.',
+                        short: true
+                    }, {
+                        title: 'Uptime (seconds)',
+                        value: 6,
+                        short: true
+                    }, {
+                        title: 'Load',
+                        value: '1.65 | 1.62 | 1.65',
+                        short: true
+                    }]
                 }]
-            }]
-        });
-
-        const stream = internals.readStream();
-        const server = Http.createServer((req, res) => {
-
-            let data = '';
-
-            req.on('data', (chunk) => {
-
-                data += chunk;
             });
 
-            req.on('end', () => {
+            const stream = internals.readStream();
+            const server = Http.createServer((req, res) => {
 
-                expect(data).to.deep.equal(payload);
-                res.end();
-                server.close(done);
+                let data = '';
+
+                req.on('data', (chunk) => {
+
+                    data += chunk;
+                });
+
+                req.on('end', () => {
+
+                    expect(data).to.equal(payload);
+                    res.end();
+                    server.close();
+                    return resolve();
+                });
             });
-        });
 
-        server.listen(0, 'localhost', () => {
+            server.listen(0, 'localhost', () => {
 
-            const reporter = new GoodSlack({
-                url: internals.getUri(server),
-                host: 'localhost'
+                const reporter = new GoodSlack({
+                    url: internals.getUri(server),
+                    host: 'localhost'
+                });
+
+                const event = Hoek.clone(internals.events.ops);
+                event.timestamp = now;
+                event.statusCode = 404;
+
+                stream.pipe(reporter);
+                stream.push(event);
             });
-
-            const event = Hoek.clone(internals.events.log);
-            event.timestamp = now;
-
-            stream.pipe(reporter);
-            stream.push(event);
         });
     });
 
-    it('sends message on "log" object event', (done) => {
+    it('sends message on "error" event', async () => {
 
-        const objectData = { foo: 'bar', baz: 'foo' };
-        const stringifiedData = '{"foo":"bar","baz":"foo"}';
-        const prettifiedData = '{\n  "foo": "bar",\n  "baz": "foo"\n}';
+        return await new Promise((resolve) => {
 
-        const payload = Stringify({
-            attachments: [{
-                pretext: '`log` event from *localhost* at ' + timestamp,
-                'mrkdwn_in': ['pretext','text','fields'],
-                fallback: `info ${stringifiedData}`,
-                fields: [{
-                    title: 'Tags',
-                    value: 'info'
-                }, {
-                    title: 'Data',
-                    value: Util.format('```\n%s\n```', prettifiedData)
+            const error = new Error('Something bad had happened');
+            error.stack = 'Error: Something bad had happened\n' +
+                '    at Object.<anonymous> (/good-slack/test/index.js:79:10)';
+
+            const payload = Stringify({
+                attachments: [{
+                    pretext: '`error` event from *localhost* at ' + timestamp,
+                    'mrkdwn_in': ['pretext','text','fields'],
+                    fallback: 'Error: Something bad had happened',
+                    text: '*GET* /search',
+                    color: 'danger',
+                    fields:[{
+                        title: 'Error',
+                        value: 'Error: Something bad had happened'
+                    },{
+                        title: 'Stack',
+                        value: Util.format('```\n%s\n```', error.stack)
+                    }]
                 }]
-            }]
-        });
-
-        const stream = internals.readStream();
-        const server = Http.createServer((req, res) => {
-
-            let data = '';
-
-            req.on('data', (chunk) => {
-
-                data += chunk;
             });
 
-            req.on('end', () => {
+            const stream = internals.readStream();
+            const server = Http.createServer((req, res) => {
 
-                expect(data).to.deep.equal(payload);
-                res.end();
-                server.close(done);
+                let data = '';
+
+                req.on('data', (chunk) => {
+
+                    data += chunk;
+                });
+
+                req.on('end', () => {
+
+                    expect(data).to.equal(payload);
+                    res.end();
+                    server.close();
+                    return resolve();
+                });
             });
-        });
 
-        server.listen(0, 'localhost', () => {
+            server.listen(0, 'localhost', () => {
 
-            const reporter = new GoodSlack({
-                url: internals.getUri(server),
-                host: 'localhost'
+                const reporter = new GoodSlack({
+                    url: internals.getUri(server),
+                    host: 'localhost'
+                });
+
+                const event = Hoek.clone(internals.events.error);
+                event.timestamp = now;
+                event.error = error;
+
+                stream.pipe(reporter);
+                stream.push(event);
             });
-
-            const event = Hoek.clone(internals.events.log);
-            event.timestamp = now;
-            event.data = objectData;
-
-            stream.pipe(reporter);
-            stream.push(event);
         });
     });
 
-    it('sends message on "log" event without tags', (done) => {
+    it('sends message on "log" string event', async () => {
 
-        const payload = Stringify({
-            attachments: [{
-                pretext: '`log` event from *localhost* at ' + timestamp,
-                'mrkdwn_in': ['pretext','text','fields'],
-                fallback: 'Server started at http://localhost',
-                fields: [{
-                    title: 'Tags',
-                    value: ''
-                }, {
-                    title: 'Data',
-                    value: 'Server started at http://localhost'
+        return await new Promise((resolve) => {
+
+            const payload = Stringify({
+                attachments: [{
+                    pretext: '`log` event from *localhost* at ' + timestamp,
+                    'mrkdwn_in': ['pretext','text','fields'],
+                    fallback: 'info Server started at http://localhost',
+                    fields: [{
+                        title: 'Tags',
+                        value: 'info'
+                    }, {
+                        title: 'Data',
+                        value: 'Server started at http://localhost'
+                    }]
                 }]
-            }]
-        });
-
-        const stream = internals.readStream();
-        const server = Http.createServer((req, res) => {
-
-            let data = '';
-
-            req.on('data', (chunk) => {
-
-                data += chunk;
             });
 
-            req.on('end', () => {
+            const stream = internals.readStream();
+            const server = Http.createServer((req, res) => {
 
-                expect(data).to.deep.equal(payload);
-                res.end();
-                server.close(done);
+                let data = '';
+
+                req.on('data', (chunk) => {
+
+                    data += chunk;
+                });
+
+                req.on('end', () => {
+
+                    expect(data).to.equal(payload);
+                    res.end();
+                    server.close();
+                    return resolve();
+                });
             });
-        });
 
-        server.listen(0, 'localhost', () => {
+            server.listen(0, 'localhost', () => {
 
-            const reporter = new GoodSlack({
-                url: internals.getUri(server),
-                host: 'localhost'
+                const reporter = new GoodSlack({
+                    url: internals.getUri(server),
+                    host: 'localhost'
+                });
+
+                const event = Hoek.clone(internals.events.log);
+                event.timestamp = now;
+
+                stream.pipe(reporter);
+                stream.push(event);
             });
-
-            const event = Hoek.clone(internals.events.log);
-            event.timestamp = now;
-            delete event.tags;
-
-            stream.pipe(reporter);
-            stream.push(event);
         });
     });
 
-    it('sends message on "log" event as basic text message', (done) => {
+    it('sends message on "log" object event', async () => {
 
-        const payload = Stringify({
-            text: 'Server started at http://localhost'
-        });
+        return await new Promise((resolve) => {
 
-        const stream = internals.readStream();
-        const server = Http.createServer((req, res) => {
+            const objectData = { foo: 'bar', baz: 'foo' };
+            const stringifiedData = '{"foo":"bar","baz":"foo"}';
+            const prettifiedData = '{\n  "foo": "bar",\n  "baz": "foo"\n}';
 
-            let data = '';
-
-            req.on('data', (chunk) => {
-
-                data += chunk;
+            const payload = Stringify({
+                attachments: [{
+                    pretext: '`log` event from *localhost* at ' + timestamp,
+                    'mrkdwn_in': ['pretext','text','fields'],
+                    fallback: `info ${stringifiedData}`,
+                    fields: [{
+                        title: 'Tags',
+                        value: 'info'
+                    }, {
+                        title: 'Data',
+                        value: Util.format('```\n%s\n```', prettifiedData)
+                    }]
+                }]
             });
 
-            req.on('end', () => {
+            const stream = internals.readStream();
+            const server = Http.createServer((req, res) => {
 
-                expect(data).to.deep.equal(payload);
-                res.end();
-                server.close(done);
+                let data = '';
+
+                req.on('data', (chunk) => {
+
+                    data += chunk;
+                });
+
+                req.on('end', () => {
+
+                    expect(data).to.equal(payload);
+                    res.end();
+                    server.close();
+                    return resolve();
+                });
             });
-        });
 
-        server.listen(0, 'localhost', () => {
+            server.listen(0, 'localhost', () => {
 
-            const reporter = new GoodSlack({
-                url: internals.getUri(server),
-                host: 'localhost',
-                basicLogEvent: true
+                const reporter = new GoodSlack({
+                    url: internals.getUri(server),
+                    host: 'localhost'
+                });
+
+                const event = Hoek.clone(internals.events.log);
+                event.timestamp = now;
+                event.data = objectData;
+
+                stream.pipe(reporter);
+                stream.push(event);
             });
-
-            const event = Hoek.clone(internals.events.log);
-            event.timestamp = now;
-            delete event.tags;
-
-            stream.pipe(reporter);
-            stream.push(event);
         });
     });
 
-    it('sends one message per event', (done) => {
+    it('sends message on "log" event without tags', async () => {
 
-        const payload = Stringify({
-            attachments: [{
-                pretext: '`response` event from *localhost* at ' + timestamp,
-                'mrkdwn_in': ['pretext','text','fields'],
-                fallback: '404 POST /data',
-                color: 'danger',
-                text: '*POST* /data {"name":"diego"} 404 (150ms)'
-            }]
+        return await new Promise((resolve) => {
+
+            const payload = Stringify({
+                attachments: [{
+                    pretext: '`log` event from *localhost* at ' + timestamp,
+                    'mrkdwn_in': ['pretext','text','fields'],
+                    fallback: 'Server started at http://localhost',
+                    fields: [{
+                        title: 'Tags',
+                        value: ''
+                    }, {
+                        title: 'Data',
+                        value: 'Server started at http://localhost'
+                    }]
+                }]
+            });
+
+            const stream = internals.readStream();
+            const server = Http.createServer((req, res) => {
+
+                let data = '';
+
+                req.on('data', (chunk) => {
+
+                    data += chunk;
+                });
+
+                req.on('end', () => {
+
+                    expect(data).to.equal(payload);
+                    res.end();
+                    server.close();
+                    return resolve();
+                });
+            });
+
+            server.listen(0, 'localhost', () => {
+
+                const reporter = new GoodSlack({
+                    url: internals.getUri(server),
+                    host: 'localhost'
+                });
+
+                const event = Hoek.clone(internals.events.log);
+                event.timestamp = now;
+                delete event.tags;
+
+                stream.pipe(reporter);
+                stream.push(event);
+            });
         });
+    });
 
-        let hitCount = 0;
+    it('sends message on "log" event as basic text message', async () => {
 
-        const stream = internals.readStream();
-        const server = Http.createServer((req, res) => {
+        return await new Promise((resolve) => {
 
-            let data = '';
-            hitCount++;
-
-            req.on('data', (chunk) => {
-
-                data += chunk;
+            const payload = Stringify({
+                text: 'Server started at http://localhost'
             });
 
-            req.on('end', () => {
+            const stream = internals.readStream();
+            const server = Http.createServer((req, res) => {
 
-                expect(data).to.deep.equal(payload);
-                res.end();
+                let data = '';
 
-                if (hitCount === 2) {
-                    return server.close(done);
-                }
+                req.on('data', (chunk) => {
+
+                    data += chunk;
+                });
+
+                req.on('end', () => {
+
+                    expect(data).to.equal(payload);
+                    res.end();
+                    server.close();
+                    return resolve();
+                });
+            });
+
+            server.listen(0, 'localhost', () => {
+
+                const reporter = new GoodSlack({
+                    url: internals.getUri(server),
+                    host: 'localhost',
+                    basicLogEvent: true
+                });
+
+                const event = Hoek.clone(internals.events.log);
+                event.timestamp = now;
+                delete event.tags;
+
+                stream.pipe(reporter);
+                stream.push(event);
             });
         });
+    });
 
-        server.listen(0, 'localhost', () => {
+    it('sends one message per event', async () => {
 
-            const reporter = new GoodSlack({
-                url: internals.getUri(server),
-                host: 'localhost'
+        return await new Promise((resolve) => {
+
+            const payload = Stringify({
+                attachments: [{
+                    pretext: '`response` event from *localhost* at ' + timestamp,
+                    'mrkdwn_in': ['pretext','text','fields'],
+                    fallback: '404 POST /data',
+                    color: 'danger',
+                    text: '*POST* /data {"name":"diego"} 404 (150ms)'
+                }]
             });
 
-            const event = Hoek.clone(internals.events.response);
-            event.timestamp = now;
-            event.statusCode = 404;
+            let hitCount = 0;
 
-            stream.pipe(reporter);
-            stream.push(event);
-            stream.push(event);
+            const stream = internals.readStream();
+            const server = Http.createServer((req, res) => {
+
+                let data = '';
+                hitCount++;
+
+                req.on('data', (chunk) => {
+
+                    data += chunk;
+                });
+
+                req.on('end', () => {
+
+                    expect(data).to.equal(payload);
+                    res.end();
+
+                    if (hitCount === 2) {
+                        server.close();
+                        return resolve();
+                    }
+                });
+            });
+
+            server.listen(0, 'localhost', () => {
+
+                const reporter = new GoodSlack({
+                    url: internals.getUri(server),
+                    host: 'localhost'
+                });
+
+                const event = Hoek.clone(internals.events.response);
+                event.timestamp = now;
+                event.statusCode = 404;
+
+                stream.pipe(reporter);
+                stream.push(event);
+
+
+                const event2 = Hoek.clone(internals.events.response);
+                event2.timestamp = now;
+                event2.statusCode = 404;
+
+                stream.push(event2);
+            });
         });
     });
 });
