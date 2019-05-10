@@ -21,20 +21,20 @@ Creates a new GoodSlack object with the following arguments:
 
 ## Using with Hapi
 
-Below is an example of using `good-slack` and `good-squeeze` together in a Hapi server to log all internal error messages to a slack channel.
+Below is an example, based on the [hapi plugin documentation examples](https://hapijs.com/tutorials/plugins), of using `good-slack` and `good-squeeze` together in a Hapi server to log all internal error messages to a slack channel.
 
 ```js
-const Hapi = require('hapi');
-const Server = new Hapi.Server();
-Server.connection();
+const Hapi = require('@hapi/hapi');
+const start = async function () {
 
-Server.register([
-  {
-    register: require('good'),
+  const server = Hapi.server();
+
+  await server.register({
+    plugin: require('@hapi/good'),
     options: {
       reporters: {
         slack: [{
-          module: 'good-squeeze',
+          module: '@hapi/good-squeeze',
           name: 'Squeeze',
           args: [{ error: '*' }]
         }, {
@@ -43,10 +43,12 @@ Server.register([
         }]
       }
     }
-  }
-], (err) => {});
+  })
+};
 ```
 
 ## Compatibility
 
-This version is compatible with `good@7.x.x` which introduced major changes on [reporter interface](https://github.com/hapijs/good/blob/master/API.md#reporter-interface). For `6.x.x` support use  [v2.2.1](https://github.com/nakardo/good-slack/tree/v2.1.1).
+* This version (v4) is compatible with `@hapi/good@8.x.x`, in which hapi moved to scoped package names.
+* Use v3 for `good@7.x.x`, which introduced major changes on [reporter interface](https://github.com/hapijs/good/blob/master/API.md#reporter-interface).
+* Use v2 for legacy support of `good@6.x.x`.
